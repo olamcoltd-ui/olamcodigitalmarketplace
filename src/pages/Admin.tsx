@@ -117,6 +117,18 @@ const Admin = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate that files are uploaded before submitting
+    if (!formData.file_url) {
+      toast.error("Please upload a product file before submitting");
+      return;
+    }
+    
+    if (!formData.thumbnail_url) {
+      toast.error("Please upload a product thumbnail before submitting");
+      return;
+    }
+    
     try {
       const productData = {
         title: formData.title,
@@ -144,6 +156,7 @@ const Admin = () => {
         toast.success("Product created successfully");
       }
 
+      // Only close dialog and reset form after successful save
       setIsDialogOpen(false);
       setSelectedProduct(null);
       setFormData({ title: "", description: "", price: "", category: "", file_url: "", thumbnail_url: "" });
