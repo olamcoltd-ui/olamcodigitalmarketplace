@@ -92,7 +92,7 @@ serve(async (req) => {
         amount: plan.price * 100, // Paystack expects amount in kobo
         currency: 'NGN',
         reference: `subscription_${Date.now()}_${user.id.slice(0, 8)}`,
-        callback_url: `${req.headers.get('origin')}/subscription-success`,
+        callback_url: `${req.headers.get('origin')}/payment-success`,
         metadata: {
           user_id: user.id,
           plan_name: plan.name,
