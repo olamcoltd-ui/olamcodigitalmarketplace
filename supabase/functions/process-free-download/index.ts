@@ -95,12 +95,20 @@ serve(async (req) => {
     }
 
     // Update product download count
-    await supabaseService
+    const { data: currentProduct } = await supabaseService
       .from('products')
-      .update({
-        download_count: supabaseService.raw('download_count + 1')
-      })
+      .select('download_count')
       .eq('id', order.product_id)
+      .single()
+
+    if (currentProduct) {
+      await supabaseService
+        .from('products')
+        .update({
+          download_count: (currentProduct.download_count || 0) + 1
+        })
+        .eq('id', order.product_id)
+    }
 
     // Track analytics for free download
     if (userId) {
