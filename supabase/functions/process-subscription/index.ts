@@ -116,12 +116,7 @@ serve(async (req) => {
         payment_reference: paystackData.data.reference,
         payment_status: 'pending',
         admin_share: plan.price * 0.75, // 75% to admin
-        referrer_commission: 0, // Will be calculated if user has referrer
-        metadata: {
-          type: 'subscription',
-          plan_name: plan.name,
-          duration_months: plan.duration_months
-        }
+        referrer_commission: 0 // Will be calculated if user has referrer
       })
 
     if (orderError) {

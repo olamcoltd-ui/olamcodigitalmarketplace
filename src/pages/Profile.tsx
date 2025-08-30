@@ -155,8 +155,8 @@ const ProfilePage = () => {
         toast.success("Subscription updated to free plan");
         fetchData();
       } else {
-        // Redirect to payment page
-        window.location.href = data.authorization_url;
+        // Open payment page in new tab
+        window.open(data.authorization_url, '_blank');
       }
     } catch (error) {
       console.error("Error processing subscription:", error);

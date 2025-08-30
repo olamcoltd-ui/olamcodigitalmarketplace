@@ -120,8 +120,12 @@ const FileUpload = ({
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only set dragging to false if we're leaving the entire component
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+    // Check if the related target is outside the drag container
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isOutside = e.clientX < rect.left || e.clientX > rect.right || 
+                     e.clientY < rect.top || e.clientY > rect.bottom;
+    
+    if (isOutside || !e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragging(false);
     }
   };
