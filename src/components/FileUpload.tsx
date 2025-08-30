@@ -65,50 +65,99 @@ const FileUpload = ({
 
   const uploadFile = async (file: File, fileIndex: number) => {
     try {
+      // Check authentication status first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error("Authentication error:", authError);
+        throw new Error("Authentication required. Please log in again.");
+      }
+
       // Create a unique filename with timestamp and random string
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(7);
       const fileExtension = file.name.split('.').pop();
-      const baseName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_'); // Sanitize filename
+      const baseName = safeName.replace(/\.[^/.]+$/, ""); // Remove extension
       const fileName = `${folder}/${timestamp}-${randomString}-${baseName}.${fileExtension}`;
       
       console.log("Uploading file to bucket:", bucketName, "with path:", fileName);
       
-      const { data, error } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      // Add retry logic and better error handling
+      let uploadAttempts = 0;
+      const maxAttempts = 3;
+      
+      while (uploadAttempts < maxAttempts) {
+        try {
+          const { data, error } = await supabase.storage
+            .from(bucketName)
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false,
+              duplex: 'half' // Add this for better compatibility with large files
+            });
 
-      if (error) {
-        console.error("Storage upload error:", error);
-        throw error;
+          if (error) {
+            console.error(`Storage upload error (attempt ${uploadAttempts + 1}):`, error);
+            
+            // If it's a network error, retry
+            if (error.message.includes('fetch') || error.message.includes('network') || uploadAttempts < maxAttempts - 1) {
+              uploadAttempts++;
+              await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts)); // Progressive delay
+              continue;
+            }
+            
+            throw error;
+          }
+
+          console.log("Upload successful, getting public URL for:", fileName);
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from(bucketName)
+            .getPublicUrl(fileName);
+
+          console.log("Public URL generated:", publicUrl);
+
+          // Update file state
+          setFiles(prev => prev.map((f, i) => 
+            i === fileIndex 
+              ? { ...f, url: publicUrl, uploading: false, uploaded: true }
+              : f
+          ));
+
+          // Call callback
+          onFileUpload(publicUrl, file.name, file.size);
+          toast.success(`${file.name} uploaded successfully`);
+          return; // Success, exit the retry loop
+
+        } catch (retryError) {
+          uploadAttempts++;
+          if (uploadAttempts >= maxAttempts) {
+            throw retryError;
+          }
+          console.log(`Upload attempt ${uploadAttempts} failed, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts));
+        }
       }
-
-      console.log("Upload successful, getting public URL for:", fileName);
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(fileName);
-
-      console.log("Public URL generated:", publicUrl);
-
-      // Update file state
-      setFiles(prev => prev.map((f, i) => 
-        i === fileIndex 
-          ? { ...f, url: publicUrl, uploading: false, uploaded: true }
-          : f
-      ));
-
-      // Call callback
-      onFileUpload(publicUrl, file.name, file.size);
-      toast.success(`${file.name} uploaded successfully`);
 
     } catch (error) {
       console.error("Error uploading file:", error);
-      toast.error(`Failed to upload ${file.name}: ${error.message || 'Unknown error'}`);
+      
+      let errorMessage = "Unknown error occurred";
+      if (error.message) {
+        if (error.message.includes("Authentication")) {
+          errorMessage = "Please log in again to upload files";
+        } else if (error.message.includes("fetch")) {
+          errorMessage = "Network error. Please check your connection and try again";
+        } else if (error.message.includes("size")) {
+          errorMessage = "File is too large for upload";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
       
       // Update file state to show error
       setFiles(prev => prev.map((f, i) => 
