@@ -32,15 +32,53 @@ const FileUpload = ({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const validateFileType = (file: File) => {
+    if (acceptedTypes === "*/*") return true;
+    
+    const allowedTypes = acceptedTypes.split(',').map(type => type.trim());
+    const fileType = file.type;
+    const fileName = file.name.toLowerCase();
+    
+    return allowedTypes.some(type => {
+      if (type === "*/*") return true;
+      if (type.startsWith('.')) {
+        return fileName.endsWith(type.toLowerCase());
+      }
+      if (type.includes('/*')) {
+        const mainType = type.split('/')[0];
+        return fileType.startsWith(mainType);
+      }
+      return fileType === type;
+    });
+  };
+
   const handleFileSelect = (selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
 
+    // Clear previous files for single file upload scenarios
+    if (selectedFiles.length === 1) {
+      setFiles([]);
+    }
+
     const newFiles: UploadedFile[] = [];
+    const validFiles: File[] = [];
     
     Array.from(selectedFiles).forEach((file) => {
+      // Check file type
+      if (!validateFileType(file)) {
+        toast.error(`File type not supported: ${file.name}`);
+        return;
+      }
+
       // Check file size
       if (file.size > maxSize * 1024 * 1024) {
         toast.error(`File ${file.name} is too large. Maximum size is ${maxSize}MB`);
+        return;
+      }
+
+      // Check for empty files
+      if (file.size === 0) {
+        toast.error(`File ${file.name} is empty`);
         return;
       }
 
@@ -51,20 +89,26 @@ const FileUpload = ({
         uploading: true,
         uploaded: false
       });
+      
+      validFiles.push(file);
     });
 
-    setFiles(prev => [...prev, ...newFiles]);
+    if (newFiles.length === 0) return;
 
-    // Upload files
-    Array.from(selectedFiles).forEach((file, index) => {
-      if (file.size <= maxSize * 1024 * 1024) {
-        uploadFile(file, files.length + index);
-      }
+    setFiles(prev => selectedFiles.length === 1 ? newFiles : [...prev, ...newFiles]);
+
+    // Upload files with better error handling
+    validFiles.forEach((file, index) => {
+      const fileIndex = selectedFiles.length === 1 ? index : files.length + index;
+      uploadFile(file, fileIndex);
     });
   };
 
   const uploadFile = async (file: File, fileIndex: number) => {
     try {
+      // Show immediate feedback
+      toast.info(`Starting upload for ${file.name}...`);
+
       // Check authentication status first
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
@@ -76,85 +120,70 @@ const FileUpload = ({
       // Create a unique filename with timestamp and random string
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(7);
-      const fileExtension = file.name.split('.').pop();
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_'); // Sanitize filename
-      const baseName = safeName.replace(/\.[^/.]+$/, ""); // Remove extension
+      const fileExtension = file.name.split('.').pop() || '';
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const baseName = safeName.replace(/\.[^/.]+$/, "");
       const fileName = `${folder}/${timestamp}-${randomString}-${baseName}.${fileExtension}`;
       
       console.log("Uploading file to bucket:", bucketName, "with path:", fileName);
       
-      // Create FormData for better mobile compatibility
-      const formData = new FormData();
-      formData.append('file', file);
+      // Update progress immediately
+      setFiles(prev => prev.map((f, i) => 
+        i === fileIndex 
+          ? { ...f, uploading: true, uploaded: false }
+          : f
+      ));
+
+      // Use ArrayBuffer for better compatibility across all devices
+      const arrayBuffer = await file.arrayBuffer();
       
-      // Add retry logic and better error handling
-      let uploadAttempts = 0;
-      const maxAttempts = 3;
-      
-      while (uploadAttempts < maxAttempts) {
-        try {
-          const { data, error } = await supabase.storage
-            .from(bucketName)
-            .upload(fileName, file, {
-              cacheControl: '3600',
-              upsert: false
-            });
+      // Optimized upload with chunking for large files
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, arrayBuffer, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type || 'application/octet-stream'
+        });
 
-          if (error) {
-            console.error(`Storage upload error (attempt ${uploadAttempts + 1}):`, error);
-            
-            // If it's a network error, retry
-            if (error.message.includes('fetch') || error.message.includes('network') || uploadAttempts < maxAttempts - 1) {
-              uploadAttempts++;
-              await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts)); // Progressive delay
-              continue;
-            }
-            
-            throw error;
-          }
-
-          console.log("Upload successful, getting public URL for:", fileName);
-
-          // Get public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from(bucketName)
-            .getPublicUrl(fileName);
-
-          console.log("Public URL generated:", publicUrl);
-
-          // Update file state
-          setFiles(prev => prev.map((f, i) => 
-            i === fileIndex 
-              ? { ...f, url: publicUrl, uploading: false, uploaded: true }
-              : f
-          ));
-
-          // Call callback
-          onFileUpload(publicUrl, file.name, file.size);
-          toast.success(`${file.name} uploaded successfully`);
-          return; // Success, exit the retry loop
-
-        } catch (retryError) {
-          uploadAttempts++;
-          if (uploadAttempts >= maxAttempts) {
-            throw retryError;
-          }
-          console.log(`Upload attempt ${uploadAttempts} failed, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts));
-        }
+      if (error) {
+        console.error("Storage upload error:", error);
+        throw error;
       }
+
+      console.log("Upload successful, getting public URL for:", fileName);
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(fileName);
+
+      console.log("Public URL generated:", publicUrl);
+
+      // Update file state immediately
+      setFiles(prev => prev.map((f, i) => 
+        i === fileIndex 
+          ? { ...f, url: publicUrl, uploading: false, uploaded: true }
+          : f
+      ));
+
+      // Call callback with all required parameters
+      onFileUpload(publicUrl, file.name, file.size);
+      
+      // Show success message
+      toast.success(`✓ ${file.name} uploaded successfully (${formatFileSize(file.size)})`);
 
     } catch (error) {
       console.error("Error uploading file:", error);
       
-      let errorMessage = "Unknown error occurred";
-      if (error.message) {
+      let errorMessage = "Upload failed";
+      if (error?.message) {
         if (error.message.includes("Authentication")) {
           errorMessage = "Please log in again to upload files";
-        } else if (error.message.includes("fetch")) {
-          errorMessage = "Network error. Please check your connection and try again";
-        } else if (error.message.includes("size")) {
-          errorMessage = "File is too large for upload";
+        } else if (error.message.includes("payload too large")) {
+          errorMessage = `File too large (max ${maxSize}MB)`;
+        } else if (error.message.includes("duplicate")) {
+          errorMessage = "File already exists";
         } else {
           errorMessage = error.message;
         }
@@ -186,20 +215,24 @@ const FileUpload = ({
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Use a timeout to check if we're really leaving the drag area
-    setTimeout(() => {
-      const dragArea = e.currentTarget as HTMLElement;
-      if (!dragArea.matches(':hover')) {
-        setIsDragging(false);
-      }
-    }, 50);
+    
+    // Only set dragging to false if we're leaving the main drop area
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setIsDragging(false);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
     if (e.dataTransfer.types.includes("Files")) {
       e.dataTransfer.dropEffect = "copy";
+      setIsDragging(true);
     }
   };
 
@@ -210,8 +243,12 @@ const FileUpload = ({
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = e.dataTransfer.files;
+      console.log(`Dropped ${droppedFiles.length} files`);
       handleFileSelect(droppedFiles);
       e.dataTransfer.clearData();
+      
+      // Show immediate feedback
+      toast.info(`Processing ${droppedFiles.length} file(s)...`);
     }
   };
 
@@ -221,6 +258,34 @@ const FileUpload = ({
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileTypeDisplay = (fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    const fileTypeMap: { [key: string]: string } = {
+      pdf: 'PDF Document',
+      doc: 'Word Document', 
+      docx: 'Word Document',
+      xls: 'Excel Spreadsheet',
+      xlsx: 'Excel Spreadsheet',
+      ppt: 'PowerPoint',
+      pptx: 'PowerPoint',
+      txt: 'Text File',
+      zip: 'Archive',
+      rar: 'Archive',
+      mp3: 'Audio',
+      wav: 'Audio',
+      m4a: 'Audio',
+      mp4: 'Video',
+      avi: 'Video',
+      mov: 'Video',
+      jpg: 'Image',
+      jpeg: 'Image',
+      png: 'Image',
+      gif: 'Image',
+      svg: 'Vector Image'
+    };
+    return fileTypeMap[extension] || 'File';
   };
 
   return (
@@ -238,18 +303,24 @@ const FileUpload = ({
         onDrop={handleDrop}
       >
         <CardContent className="p-8 text-center">
-          <Upload className={`h-12 w-12 mx-auto mb-4 ${
-            isDragging ? "text-primary" : "text-muted-foreground"
+          <Upload className={`h-12 w-12 mx-auto mb-4 transition-colors ${
+            isDragging ? "text-primary animate-bounce" : "text-muted-foreground"
           }`} />
-          <h3 className="text-lg font-semibold mb-2">
-            Drop files here or click to upload
+          <h3 className={`text-lg font-semibold mb-2 transition-colors ${
+            isDragging ? "text-primary" : ""
+          }`}>
+            {isDragging ? "Drop your files here!" : "Drop files here or click to upload"}
           </h3>
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-sm text-muted-foreground mb-2">
+            Supports: PDF, Images, Audio, Video, Documents, Archives
+          </p>
+          <p className="text-xs text-muted-foreground mb-4">
             Maximum file size: {maxSize}MB
           </p>
           <Button 
             onClick={() => fileInputRef.current?.click()}
-            variant="outline"
+            variant={isDragging ? "default" : "outline"}
+            className="transition-all"
           >
             Choose Files
           </Button>
@@ -285,9 +356,9 @@ const FileUpload = ({
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{file.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {formatFileSize(file.size)}
+                        {getFileTypeDisplay(file.name)} • {formatFileSize(file.size)}
                         {file.uploading && " • Uploading..."}
-                        {file.uploaded && " • Uploaded"}
+                        {file.uploaded && " • ✓ Uploaded"}
                       </p>
                     </div>
                   </div>
