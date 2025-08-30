@@ -22,11 +22,19 @@ import Privacy from "./pages/Privacy";
 import Download from "./pages/Download";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
           <Toaster />
@@ -55,6 +63,7 @@ const App: React.FC = () => {
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
+    </React.StrictMode>
   );
 };
 
