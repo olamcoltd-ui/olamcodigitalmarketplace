@@ -268,6 +268,58 @@ const ProfilePage = () => {
           </CardContent>
         </Card>
 
+        {/* Navigation Buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card 
+            className="border-primary/20 hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => navigate('/dashboard')}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center text-white mx-auto mb-3">
+                <User className="h-6 w-6" />
+              </div>
+              <h3 className="font-semibold mb-1">Overview</h3>
+              <p className="text-sm text-muted-foreground">Dashboard & Statistics</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 hover:shadow-lg transition-shadow cursor-pointer bg-primary/5">
+            <CardContent className="p-6 text-center">
+              <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center text-white mx-auto mb-3">
+                <Settings className="h-6 w-6" />
+              </div>
+              <h3 className="font-semibold mb-1">Profile</h3>
+              <p className="text-sm text-muted-foreground">Personal Settings</p>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="border-primary/20 hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => navigate('/wallet')}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center text-white mx-auto mb-3">
+                <CreditCard className="h-6 w-6" />
+              </div>
+              <h3 className="font-semibold mb-1">Wallet</h3>
+              <p className="text-sm text-muted-foreground">Earnings & Withdrawals</p>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="border-primary/20 hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => navigate('/analytics')}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center text-white mx-auto mb-3">
+                <Crown className="h-6 w-6" />
+              </div>
+              <h3 className="font-semibold mb-1">Analytics</h3>
+              <p className="text-sm text-muted-foreground">Performance Insights</p>
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="personal" className="space-y-6">
           <TabsList className="bg-card border">
             <TabsTrigger value="personal">Personal Info</TabsTrigger>

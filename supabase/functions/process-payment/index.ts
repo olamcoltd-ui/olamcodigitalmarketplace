@@ -18,23 +18,28 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
-    // Get the authenticated user
-    const authHeader = req.headers.get('Authorization')!
-    const token = authHeader.replace('Bearer ', '')
-    const { data } = await supabaseClient.auth.getUser(token)
-    const user = data.user
-
-    if (!user) {
-      throw new Error('User not authenticated')
+    // Get the authenticated user (optional for guest purchases)
+    let user = null;
+    const authHeader = req.headers.get('Authorization');
+    
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data } = await supabaseClient.auth.getUser(token);
+      user = data.user;
     }
 
-    const { product_id, amount, referrer_code } = await req.json()
+    const { product_id, amount, referrer_code, guest_email } = await req.json()
 
     // Initialize Paystack
     const paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY')
     if (!paystackSecretKey) {
       throw new Error('Paystack secret key not configured')
     }
+
+    // Determine email for payment (user email or guest email)
+    const paymentEmail = user?.email || guest_email || 'guest@example.com';
+    const userId = user?.id || null;
+    const userIdForRef = userId || 'guest';
 
     // Create Paystack transaction
     const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
@@ -44,15 +49,17 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        email: user.email,
+        email: paymentEmail,
         amount: amount * 100, // Paystack expects amount in kobo
         currency: 'NGN',
-        reference: `order_${Date.now()}_${user.id.slice(0, 8)}`,
+        reference: `order_${Date.now()}_${userIdForRef.toString().slice(0, 8)}`,
         callback_url: `${req.headers.get('origin')}/payment-success`,
         metadata: {
-          user_id: user.id,
+          user_id: userId,
           product_id,
-          referrer_code
+          referrer_code,
+          is_guest: !user,
+          guest_email: !user ? paymentEmail : null
         }
       })
     })
@@ -83,20 +90,26 @@ serve(async (req) => {
       }
     }
 
-    // Get user's commission rate
-    const { data: userProfile } = await supabaseService
-      .from('profiles')
-      .select('subscription_plan')
-      .eq('user_id', user.id)
-      .single()
+    // Get user's commission rate (default for guests)
+    let commissionRate = 0.20; // Default commission rate
+    
+    if (userId) {
+      const { data: userProfile } = await supabaseService
+        .from('profiles')
+        .select('subscription_plan')
+        .eq('user_id', userId)
+        .single()
 
-    const { data: subscriptionPlan } = await supabaseService
-      .from('subscription_plans')
-      .select('commission_rate')
-      .eq('name', userProfile?.subscription_plan || 'free')
-      .single()
+      if (userProfile) {
+        const { data: subscriptionPlan } = await supabaseService
+          .from('subscription_plans')
+          .select('commission_rate')
+          .eq('name', userProfile.subscription_plan || 'free')
+          .single()
 
-    const commissionRate = subscriptionPlan?.commission_rate || 0.20
+        commissionRate = subscriptionPlan?.commission_rate || 0.20;
+      }
+    }
 
     // Calculate commissions
     const sellerCommission = amount * commissionRate
@@ -107,7 +120,7 @@ serve(async (req) => {
     const { error: orderError } = await supabaseService
       .from('orders')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         product_id,
         amount,
         payment_reference: paystackData.data.reference,
@@ -116,7 +129,8 @@ serve(async (req) => {
         seller_commission: sellerCommission,
         admin_share: adminShare - referrerCommission,
         referrer_commission: referrerCommission,
-        commission_rate: commissionRate
+        commission_rate: commissionRate,
+        guest_email: !userId ? paymentEmail : null
       })
 
     if (orderError) {

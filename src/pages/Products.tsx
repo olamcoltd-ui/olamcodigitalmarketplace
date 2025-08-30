@@ -83,24 +83,31 @@ const Products = () => {
   });
 
   const handlePurchase = async (product: any) => {
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-
     try {
-      const { data, error } = await supabase.functions.invoke('process-payment', {
-        body: {
-          product_id: product.id,
-          amount: product.price,
-          referrer_code: profile?.referral_code
+      let requestBody: any = {
+        product_id: product.id,
+        amount: product.price,
+        referrer_code: profile?.referral_code
+      };
+
+      // If user is not authenticated, prompt for email
+      if (!user) {
+        const guestEmail = prompt("Please enter your email address to continue with the purchase:");
+        if (!guestEmail) {
+          toast.error("Email is required to process payment");
+          return;
         }
+        requestBody.guest_email = guestEmail;
+      }
+
+      const { data, error } = await supabase.functions.invoke('process-payment', {
+        body: requestBody
       });
 
       if (error) throw error;
 
       // Redirect to Paystack checkout
-      window.open(data.authorization_url, '_blank');
+      window.location.href = data.authorization_url;
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Failed to process payment');

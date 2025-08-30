@@ -112,18 +112,26 @@ const FileUpload = ({
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
+    // Only set dragging to false if we're leaving the entire component
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (e.dataTransfer.types.includes("Files")) {
+      e.dataTransfer.dropEffect = "copy";
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -131,8 +139,11 @@ const FileUpload = ({
     e.stopPropagation();
     setIsDragging(false);
 
-    const droppedFiles = e.dataTransfer.files;
-    handleFileSelect(droppedFiles);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = e.dataTransfer.files;
+      handleFileSelect(droppedFiles);
+      e.dataTransfer.clearData();
+    }
   };
 
   const formatFileSize = (bytes: number) => {

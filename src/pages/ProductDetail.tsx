@@ -65,20 +65,29 @@ const ProductDetail = () => {
   };
 
   const handlePurchase = async () => {
-    if (!user) {
-      navigate("/auth");
-      return;
-    }
-
     if (!product) return;
 
     setPurchasing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("process-payment", {
-        body: {
-          product_id: product.id,
-          amount: product.price
+      let requestBody: any = {
+        product_id: product.id,
+        amount: product.price,
+        referrer_code: new URLSearchParams(window.location.search).get('ref')
+      };
+
+      // If user is not authenticated, prompt for email
+      if (!user) {
+        const guestEmail = prompt("Please enter your email address to continue with the purchase:");
+        if (!guestEmail) {
+          toast.error("Email is required to process payment");
+          setPurchasing(false);
+          return;
         }
+        requestBody.guest_email = guestEmail;
+      }
+
+      const { data, error } = await supabase.functions.invoke("process-payment", {
+        body: requestBody
       });
 
       if (error) throw error;
