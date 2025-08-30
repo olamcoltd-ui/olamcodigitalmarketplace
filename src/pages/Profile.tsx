@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { User, CreditCard, Settings, Copy, Crown, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import { nigerianBanks, bankCodes } from "@/data/banks";
 
 interface Profile {
   id: string;
@@ -46,6 +47,7 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const [verifyingAccount, setVerifyingAccount] = useState(false);
 
   const [profileForm, setProfileForm] = useState({
     full_name: "",
@@ -54,12 +56,6 @@ const ProfilePage = () => {
     account_number: "",
     bank_name: ""
   });
-
-  const banks = [
-    "Access Bank", "Zenith Bank", "GTBank", "UBA", "First Bank",
-    "Fidelity Bank", "FCMB", "Sterling Bank", "Union Bank", "Wema Bank",
-    "Ecobank", "Keystone Bank", "Polaris Bank", "Stanbic IBTC"
-  ];
 
   useEffect(() => {
     checkAuth();
@@ -167,6 +163,35 @@ const ProfilePage = () => {
       toast.error("Failed to process subscription");
     } finally {
       setSubscribing(false);
+    }
+  };
+
+  const verifyBankAccount = async (accountNumber: string, bankName: string) => {
+    if (accountNumber.length !== 10 || !bankName) return;
+    
+    setVerifyingAccount(true);
+    try {
+      const bankCode = bankCodes[bankName];
+      if (!bankCode) {
+        toast.error("Bank code not found");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("verify-bank-account", {
+        body: { account_number: accountNumber, bank_code: bankCode }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setProfileForm(prev => ({ ...prev, account_name: data.account_name }));
+        toast.success("Account verified successfully!");
+      }
+    } catch (error: any) {
+      console.error("Account verification error:", error);
+      toast.error(error.message || "Failed to verify account");
+    } finally {
+      setVerifyingAccount(false);
     }
   };
 
@@ -304,7 +329,7 @@ const ProfilePage = () => {
                           <SelectValue placeholder="Select your bank" />
                         </SelectTrigger>
                         <SelectContent>
-                          {banks.map((bank) => (
+                          {nigerianBanks.map((bank) => (
                             <SelectItem key={bank} value={bank}>{bank}</SelectItem>
                           ))}
                         </SelectContent>
@@ -315,16 +340,33 @@ const ProfilePage = () => {
                       <Input
                         id="account_number"
                         value={profileForm.account_number}
-                        onChange={(e) => setProfileForm({ ...profileForm, account_number: e.target.value })}
+                        onChange={(e) => {
+                          const accountNumber = e.target.value;
+                          setProfileForm({ ...profileForm, account_number: accountNumber });
+                          if (accountNumber.length === 10 && profileForm.bank_name) {
+                            verifyBankAccount(accountNumber, profileForm.bank_name);
+                          }
+                        }}
+                        maxLength={10}
+                        placeholder="Enter 10-digit account number"
                       />
                     </div>
                     <div>
                       <Label htmlFor="account_name">Account Name</Label>
-                      <Input
-                        id="account_name"
-                        value={profileForm.account_name}
-                        onChange={(e) => setProfileForm({ ...profileForm, account_name: e.target.value })}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="account_name"
+                          value={profileForm.account_name}
+                          onChange={(e) => setProfileForm({ ...profileForm, account_name: e.target.value })}
+                          placeholder="Account name will be auto-filled"
+                          disabled={verifyingAccount}
+                        />
+                        {verifyingAccount && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 

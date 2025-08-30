@@ -332,27 +332,18 @@ const Admin = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label htmlFor="thumbnail_url">Thumbnail</Label>
-                       <FileUpload
-                         onFileUpload={(url, fileName, fileSize) => {
-                           setFormData({ ...formData, thumbnail_url: url });
-                           toast.success("Thumbnail uploaded successfully");
-                         }}
-                         acceptedTypes="image/*"
-                         maxSize={10}
-                         bucketName="product-images"
-                         folder="thumbnails"
-                       />
-                      {formData.thumbnail_url && (
-                        <Input
-                          id="thumbnail_url"
-                          value={formData.thumbnail_url}
-                          onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
-                          className="mt-2"
-                          placeholder="Or enter thumbnail URL manually"
+                     <div>
+                       <Label htmlFor="thumbnail_url">Product Thumbnail</Label>
+                        <FileUpload
+                          onFileUpload={(url) => setFormData({ ...formData, thumbnail_url: url })}
+                          acceptedTypes="image/*"
+                          maxSize={10}
+                          bucketName="product-images"
+                          folder="thumbnails"
                         />
-                      )}
+                       {formData.thumbnail_url && (
+                         <p className="text-sm text-muted-foreground mt-2">Thumbnail uploaded successfully</p>
+                       )}
                     </div>
                     <div>
                       <Label htmlFor="file_url">Product File</Label>
@@ -366,15 +357,9 @@ const Admin = () => {
                          bucketName="product-files"
                          folder="products"
                        />
-                      {formData.file_url && (
-                        <Input
-                          id="file_url"
-                          value={formData.file_url}
-                          onChange={(e) => setFormData({ ...formData, file_url: e.target.value })}
-                          className="mt-2"
-                          placeholder="Or enter file URL manually"
-                        />
-                      )}
+                       {formData.file_url && (
+                         <p className="text-sm text-muted-foreground mt-2">Product file uploaded successfully</p>
+                       )}
                     </div>
                     <Button type="submit" className="w-full">
                       {selectedProduct ? "Update Product" : "Create Product"}

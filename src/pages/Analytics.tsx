@@ -63,6 +63,15 @@ const Analytics = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Check if user is admin
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("user_id", user.id)
+        .single();
+
+      const isAdmin = profile?.is_admin;
+
       // Calculate date range
       const endDate = new Date();
       const startDate = new Date();
@@ -81,28 +90,74 @@ const Analytics = () => {
           break;
       }
 
-      // Fetch orders data
-      const { data: ordersData } = await supabase
-        .from("orders")
-        .select(`
-          *,
-          products (title, category)
-        `)
-        .eq("user_id", user.id)
-        .eq("payment_status", "completed")
-        .gte("created_at", startDate.toISOString());
+      let ordersData, productsData, profilesData, referralData;
 
-      // Fetch user's products
-      const { data: productsData } = await supabase
-        .from("products")
-        .select("*")
-        .order("download_count", { ascending: false });
+      if (isAdmin) {
+        // Admin analytics - all data
+        const { data: allOrders } = await supabase
+          .from("orders")
+          .select(`
+            *,
+            products (title, category)
+          `)
+          .eq("payment_status", "completed")
+          .gte("created_at", startDate.toISOString());
+
+        const { data: allProducts } = await supabase
+          .from("products")
+          .select("*")
+          .order("download_count", { ascending: false });
+
+        const { data: allProfiles } = await supabase
+          .from("profiles")
+          .select("*")
+          .gte("created_at", startDate.toISOString());
+
+        const { data: referrals } = await supabase
+          .from("profiles")
+          .select("referred_by")
+          .not("referred_by", "is", null)
+          .gte("created_at", startDate.toISOString());
+
+        ordersData = allOrders;
+        productsData = allProducts;
+        profilesData = allProfiles;
+        referralData = referrals;
+      } else {
+        // User analytics - user-specific data
+        const { data: userOrders } = await supabase
+          .from("orders")
+          .select(`
+            *,
+            products (title, category)
+          `)
+          .eq("user_id", user.id)
+          .eq("payment_status", "completed")
+          .gte("created_at", startDate.toISOString());
+
+        const { data: userProducts } = await supabase
+          .from("products")
+          .select("*")
+          .order("download_count", { ascending: false });
+
+        const { data: userReferrals } = await supabase
+          .from("profiles")
+          .select("referred_by")
+          .eq("referred_by", user.id)
+          .gte("created_at", startDate.toISOString());
+
+        ordersData = userOrders;
+        productsData = userProducts;
+        profilesData = [];
+        referralData = userReferrals;
+      }
 
       // Calculate analytics
       const totalSales = ordersData?.length || 0;
       const totalRevenue = ordersData?.reduce((sum, order) => sum + (order.seller_commission || 0), 0) || 0;
       const totalDownloads = productsData?.reduce((sum, product) => sum + (product.download_count || 0), 0) || 0;
       const totalProducts = productsData?.length || 0;
+      const totalReferrals = referralData?.length || 0;
 
       // Calculate conversion rate (mock data for demo)
       const conversionRate = totalSales > 0 ? (totalSales / (totalSales * 5)) * 100 : 0;
@@ -114,7 +169,7 @@ const Analytics = () => {
         totalSales,
         totalRevenue,
         totalDownloads,
-        totalProducts,
+        totalProducts: isAdmin ? profilesData?.length || 0 : totalReferrals,
         conversionRate,
         monthlyGrowth
       });
@@ -223,14 +278,14 @@ const Analytics = () => {
 
           <Card className="border-primary/20">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Referrals/Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">
-                {analyticsData.conversionRate.toFixed(1)}%
+                {analyticsData.totalProducts}
               </div>
-              <p className="text-xs text-muted-foreground">Visitor to customer</p>
+              <p className="text-xs text-muted-foreground">New referrals/users</p>
             </CardContent>
           </Card>
         </div>
