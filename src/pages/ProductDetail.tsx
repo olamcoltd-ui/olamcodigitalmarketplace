@@ -92,14 +92,8 @@ const ProductDetail = () => {
 
       if (error) throw error;
 
-      // Handle free products
-      if (data.is_free) {
-        toast.success("Free download processed! Redirecting to download page...");
-        navigate(`/payment-success?reference=${data.reference}`);
-        return;
-      }
-
-      // Redirect to Paystack payment page for paid products
+      // Always redirect to Paystack checkout page (for both free and paid products)
+      console.log(`Redirecting to Paystack for ${data.is_free ? 'free' : 'paid'} product checkout`);
       window.location.href = data.authorization_url;
     } catch (error) {
       console.error("Error processing payment:", error);

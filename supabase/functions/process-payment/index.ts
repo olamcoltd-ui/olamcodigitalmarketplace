@@ -30,99 +30,7 @@ serve(async (req) => {
 
     const { product_id, amount, referrer_code, guest_email } = await req.json()
 
-    // Handle free products - process directly without calling another function
-    if (amount === 0) {
-      const supabaseService = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      )
-
-      // Determine email for order (user email or guest email)
-      const orderEmail = user?.email || guest_email || 'guest@example.com';
-      const userId = user?.id || null;
-
-      // Get referrer info if referrer_code is provided
-      let referrerId = null
-      if (referrer_code) {
-        const { data: referrerData } = await supabaseService
-          .from('profiles')
-          .select('user_id')
-          .eq('referral_code', referrer_code)
-          .single()
-        
-        if (referrerData) {
-          referrerId = referrerData.user_id
-        }
-      }
-
-      // Generate a unique reference for free download
-      const reference = `free_${Date.now()}_${userId || 'guest'}`
-
-      // Create order for free product
-      const { data: order, error: orderError } = await supabaseService
-        .from('orders')
-        .insert({
-          user_id: userId,
-          product_id,
-          amount: 0,
-          payment_reference: reference,
-          payment_status: 'completed',
-          referrer_id: referrerId,
-          seller_commission: 0,
-          admin_share: 0,
-          referrer_commission: 0,
-          commission_rate: 0,
-          guest_email: !userId ? orderEmail : null,
-          download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        })
-        .select('*')
-        .single()
-
-      if (orderError || !order) {
-        console.error('Order creation error:', orderError)
-        throw new Error('Failed to create free download order')
-      }
-
-      // Generate download URL
-      const { data: downloadUrl, error: downloadError } = await supabaseService.rpc('generate_download_url', {
-        p_user_id: order.user_id,
-        p_order_id: order.id,
-        p_product_id: order.product_id
-      })
-
-      // Update product download count
-      const { data: currentProduct } = await supabaseService
-        .from('products')
-        .select('download_count')
-        .eq('id', order.product_id)
-        .single()
-
-      if (currentProduct) {
-        await supabaseService
-          .from('products')
-          .update({
-            download_count: (currentProduct.download_count || 0) + 1
-          })
-          .eq('id', order.product_id)
-      }
-
-      return new Response(
-        JSON.stringify({
-          is_free: true,
-          success: true,
-          order: order,
-          download_url: downloadUrl,
-          reference: reference,
-          message: 'Free download processed successfully'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      )
-    }
-
-    // Initialize Paystack for paid products
+    // Initialize Paystack for ALL products (including free ones for consistency)
     const paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY')
     if (!paystackSecretKey) {
       throw new Error('Paystack secret key not configured')
@@ -133,7 +41,9 @@ serve(async (req) => {
     const userId = user?.id || null;
     const userIdForRef = userId || 'guest';
 
-    // Create Paystack transaction
+    // Create Paystack transaction (even for free products)
+    console.log(`Processing ${amount === 0 ? 'free' : 'paid'} product payment for amount: ₦${amount}`)
+    
     const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
       headers: {
@@ -142,7 +52,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         email: paymentEmail,
-        amount: amount * 100, // Paystack expects amount in kobo
+        amount: amount * 100, // Paystack expects amount in kobo (will be 0 for free products)
         currency: 'NGN',
         reference: `order_${Date.now()}_${userIdForRef.toString().slice(0, 8)}`,
         callback_url: `${req.headers.get('origin')}/payment-success`,
@@ -151,12 +61,14 @@ serve(async (req) => {
           product_id,
           referrer_code,
           is_guest: !user,
-          guest_email: !user ? paymentEmail : null
+          guest_email: !user ? paymentEmail : null,
+          is_free: amount === 0
         }
       })
     })
 
     const paystackData = await paystackResponse.json()
+    console.log('Paystack initialization response:', paystackData)
 
     if (!paystackData.status) {
       throw new Error(paystackData.message || 'Failed to initialize payment')
@@ -203,7 +115,7 @@ serve(async (req) => {
       }
     }
 
-    // Calculate commissions
+    // Calculate commissions (will be 0 for free products)
     const sellerCommission = amount * commissionRate
     const adminShare = amount - sellerCommission
     const referrerCommission = referrerId ? amount * 0.15 : 0
@@ -230,10 +142,13 @@ serve(async (req) => {
       throw new Error('Failed to create order')
     }
 
+    console.log(`Order created successfully for ${amount === 0 ? 'free' : 'paid'} product`)
+
     return new Response(
       JSON.stringify({
         authorization_url: paystackData.data.authorization_url,
-        reference: paystackData.data.reference
+        reference: paystackData.data.reference,
+        is_free: amount === 0
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

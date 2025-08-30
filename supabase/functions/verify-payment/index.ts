@@ -31,9 +31,10 @@ serve(async (req) => {
     })
 
     const paystackData = await paystackResponse.json()
+    console.log('Paystack verification response:', paystackData)
 
     if (!paystackData.status) {
-      throw new Error('Payment verification failed')
+      throw new Error('Payment verification failed: ' + paystackData.message)
     }
 
     const transaction = paystackData.data
@@ -44,7 +45,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    if (transaction.status === 'success') {
+    // Handle successful transactions (including free products with ₦0 amount)
+    if (transaction.status === 'success' || (transaction.amount === 0 && paystackData.status)) {
+      console.log(`Processing ${transaction.amount === 0 ? 'free' : 'paid'} product verification`);
       // Handle subscription payments
       if (transaction.metadata?.type === 'subscription') {
         const { error: profileError } = await supabaseService
