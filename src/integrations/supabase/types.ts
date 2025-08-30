@@ -41,6 +41,41 @@ export type Database = {
         }
         Relationships: []
       }
+      analytics: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          product_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          product_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          product_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string | null
@@ -67,6 +102,57 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      downloads: {
+        Row: {
+          created_at: string | null
+          download_count: number | null
+          download_url: string
+          expires_at: string
+          id: string
+          order_id: string
+          product_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          download_count?: number | null
+          download_url: string
+          expires_at: string
+          id?: string
+          order_id: string
+          product_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          download_count?: number | null
+          download_url?: string
+          expires_at?: string
+          id?: string
+          order_id?: string
+          product_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "downloads_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "downloads_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       orders: {
         Row: {
@@ -146,15 +232,19 @@ export type Database = {
       }
       products: {
         Row: {
+          author_name: string | null
+          brand: string | null
           category: string | null
           category_id: string | null
           created_at: string | null
           description: string | null
           download_count: number | null
           file_size_mb: number | null
+          file_type: string | null
           file_url: string | null
           id: string
           is_active: boolean | null
+          original_filename: string | null
           price: number
           tags: string[] | null
           thumbnail_url: string | null
@@ -162,15 +252,19 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          author_name?: string | null
+          brand?: string | null
           category?: string | null
           category_id?: string | null
           created_at?: string | null
           description?: string | null
           download_count?: number | null
           file_size_mb?: number | null
+          file_type?: string | null
           file_url?: string | null
           id?: string
           is_active?: boolean | null
+          original_filename?: string | null
           price: number
           tags?: string[] | null
           thumbnail_url?: string | null
@@ -178,15 +272,19 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          author_name?: string | null
+          brand?: string | null
           category?: string | null
           category_id?: string | null
           created_at?: string | null
           description?: string | null
           download_count?: number | null
           file_size_mb?: number | null
+          file_type?: string | null
           file_url?: string | null
           id?: string
           is_active?: boolean | null
+          original_filename?: string | null
           price?: number
           tags?: string[] | null
           thumbnail_url?: string | null
@@ -456,6 +554,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      generate_download_url: {
+        Args: { p_order_id: string; p_product_id: string; p_user_id: string }
+        Returns: string
+      }
       generate_referral_code: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -467,6 +569,15 @@ export type Database = {
       update_wallet_balance: {
         Args: { amount_change: number; user_uuid: string }
         Returns: undefined
+      }
+      validate_download: {
+        Args: { download_token: string; requesting_user_id: string }
+        Returns: {
+          file_url: string
+          product_id: string
+          product_title: string
+          valid: boolean
+        }[]
       }
     }
     Enums: {
