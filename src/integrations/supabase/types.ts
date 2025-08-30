@@ -557,6 +557,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      cleanup_orphaned_files: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       generate_download_url: {
         Args: { p_order_id: string; p_product_id: string; p_user_id: string }
         Returns: string

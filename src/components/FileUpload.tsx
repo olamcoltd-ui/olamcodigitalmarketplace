@@ -24,7 +24,7 @@ interface UploadedFile {
 const FileUpload = ({ 
   onFileUpload, 
   acceptedTypes = "*/*", 
-  maxSize = 100,
+  maxSize = 10240, // 10GB in MB
   bucketName,
   folder = "uploads"
 }: FileUploadProps) => {
@@ -106,8 +106,11 @@ const FileUpload = ({
 
   const uploadFile = async (file: File, fileIndex: number) => {
     try {
-      // Show immediate feedback
-      toast.info(`Starting upload for ${file.name}...`);
+      // Show immediate feedback with progress tracking for large files
+      const isLargeFile = file.size > 100 * 1024 * 1024; // Files > 100MB
+      toast.info(`${isLargeFile ? 'Large file detected - ' : ''}Starting upload for ${file.name}...`);
+
+      console.log(`Uploading ${isLargeFile ? 'large ' : ''}file: ${file.name} (${formatFileSize(file.size)})`);
 
       // Check authentication status first
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -137,39 +140,56 @@ const FileUpload = ({
       // Use ArrayBuffer for better compatibility across all devices
       const arrayBuffer = await file.arrayBuffer();
       
-      // Optimized upload with retry logic for large files
+      // Enhanced upload with retry logic optimized for large files
       let uploadResult;
-      const maxRetries = 3;
+      const maxRetries = 5; // Increased retries for large files
       let retryCount = 0;
       
       while (retryCount < maxRetries) {
         try {
+          console.log(`Upload attempt ${retryCount + 1}/${maxRetries} for ${file.name}`);
+          
           uploadResult = await supabase.storage
             .from(bucketName)
             .upload(fileName, arrayBuffer, {
-              cacheControl: '3600',
+              cacheControl: isLargeFile ? '86400' : '3600', // Longer cache for large files
               upsert: false,
-              contentType: file.type || 'application/octet-stream'
+              contentType: file.type || 'application/octet-stream',
+              // Add metadata for large files
+              metadata: isLargeFile ? {
+                'original-size': file.size.toString(),
+                'upload-type': 'large-file'
+              } : undefined
             });
           
-          if (!uploadResult.error) break;
+          if (!uploadResult.error) {
+            console.log(`Upload successful on attempt ${retryCount + 1}`);
+            break;
+          }
           
+          console.log(`Upload attempt ${retryCount + 1} failed:`, uploadResult.error);
           retryCount++;
+          
           if (retryCount < maxRetries) {
-            console.log(`Retry ${retryCount} for ${file.name}`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+            const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff, max 10s
+            console.log(`Retrying in ${delay}ms...`);
+            toast.info(`Upload attempt ${retryCount} failed, retrying in ${delay/1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
         } catch (err) {
+          console.error(`Upload attempt ${retryCount + 1} error:`, err);
           retryCount++;
           if (retryCount >= maxRetries) throw err;
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          
+          const delay = Math.min(2000 * retryCount, 15000); // Longer delays for errors
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
       
       const { data, error } = uploadResult;
 
       if (error) {
-        console.error("Storage upload error:", error);
+        console.error("Storage upload error after all retries:", error);
         throw error;
       }
 
@@ -192,8 +212,9 @@ const FileUpload = ({
       // Call callback with all required parameters
       onFileUpload(publicUrl, file.name, file.size);
       
-      // Show success message
-      toast.success(`✓ ${file.name} uploaded successfully (${formatFileSize(file.size)})`);
+      // Show success message with file size info
+      const sizeInfo = file.size > 1024 * 1024 * 1024 ? ' (Large file uploaded successfully!)' : '';
+      toast.success(`✓ ${file.name} uploaded successfully${sizeInfo} (${formatFileSize(file.size)})`);
 
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -202,8 +223,8 @@ const FileUpload = ({
       if (error?.message) {
         if (error.message.includes("Authentication")) {
           errorMessage = "Please log in again to upload files";
-        } else if (error.message.includes("payload too large")) {
-          errorMessage = `File too large (max ${maxSize}MB)`;
+        } else if (error.message.includes("payload too large") || error.message.includes("too large")) {
+          errorMessage = `File too large - contact support for files over 10GB`;
         } else if (error.message.includes("duplicate")) {
           errorMessage = "File already exists";
         } else {
@@ -337,10 +358,10 @@ const FileUpload = ({
             {isDragging ? "Drop your files here!" : "Drop files here or click to upload"}
           </h3>
           <p className="text-sm text-muted-foreground mb-2">
-            Supports: PDF, Images, Audio, Video, Documents, Archives
+            Supports: PDF, Images, Audio, Video, Documents, Archives, and Large Files up to 10GB
           </p>
           <p className="text-xs text-muted-foreground mb-4">
-            Maximum file size: {maxSize}MB • Large files supported with retry logic
+            Maximum file size: {maxSize >= 1024 ? `${(maxSize/1024).toFixed(1)}GB` : `${maxSize}MB`} • Unlimited storage • Auto-retry for large files
           </p>
           <Button 
             onClick={(e) => {

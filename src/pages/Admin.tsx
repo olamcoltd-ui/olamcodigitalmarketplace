@@ -394,10 +394,10 @@ const Admin = () => {
                              fileSize: fileSize
                            });
                          }}
-                         acceptedTypes="*/*"
-                         maxSize={10240}
-                         bucketName="product-files"
-                         folder="products"
+                          acceptedTypes="*/*"
+                          maxSize={10240} // 10GB limit
+                          bucketName="product-files"
+                          folder="products"
                        />
                        {formData.file_url && (
                          <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
