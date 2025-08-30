@@ -24,7 +24,7 @@ interface UploadedFile {
 const FileUpload = ({ 
   onFileUpload, 
   acceptedTypes = "*/*", 
-  maxSize = 50,
+  maxSize = 100,
   bucketName,
   folder = "uploads"
 }: FileUploadProps) => {
@@ -137,14 +137,36 @@ const FileUpload = ({
       // Use ArrayBuffer for better compatibility across all devices
       const arrayBuffer = await file.arrayBuffer();
       
-      // Optimized upload with chunking for large files
-      const { data, error } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, arrayBuffer, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: file.type || 'application/octet-stream'
-        });
+      // Optimized upload with retry logic for large files
+      let uploadResult;
+      const maxRetries = 3;
+      let retryCount = 0;
+      
+      while (retryCount < maxRetries) {
+        try {
+          uploadResult = await supabase.storage
+            .from(bucketName)
+            .upload(fileName, arrayBuffer, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: file.type || 'application/octet-stream'
+            });
+          
+          if (!uploadResult.error) break;
+          
+          retryCount++;
+          if (retryCount < maxRetries) {
+            console.log(`Retry ${retryCount} for ${file.name}`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          }
+        } catch (err) {
+          retryCount++;
+          if (retryCount >= maxRetries) throw err;
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      }
+      
+      const { data, error } = uploadResult;
 
       if (error) {
         console.error("Storage upload error:", error);
@@ -315,7 +337,7 @@ const FileUpload = ({
             Supports: PDF, Images, Audio, Video, Documents, Archives
           </p>
           <p className="text-xs text-muted-foreground mb-4">
-            Maximum file size: {maxSize}MB
+            Maximum file size: {maxSize}MB • Large files supported with retry logic
           </p>
           <Button 
             onClick={() => fileInputRef.current?.click()}

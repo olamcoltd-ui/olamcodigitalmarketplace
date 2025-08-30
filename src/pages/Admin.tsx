@@ -39,6 +39,7 @@ interface AdminStats {
 const Admin = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [stats, setStats] = useState<AdminStats>({
     totalProducts: 0,
     totalSales: 0,
@@ -93,6 +94,15 @@ const Admin = () => {
 
       if (productsError) throw productsError;
       setProducts(productsData || []);
+
+      // Fetch categories
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name");
+
+      if (categoriesError) throw categoriesError;
+      setCategories(categoriesData || []);
 
       // Fetch stats
       const { data: ordersData } = await supabase
@@ -340,12 +350,11 @@ const Admin = () => {
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="ebook">E-book</SelectItem>
-                          <SelectItem value="course">Course</SelectItem>
-                          <SelectItem value="template">Template</SelectItem>
-                          <SelectItem value="software">Software</SelectItem>
-                          <SelectItem value="music">Music</SelectItem>
-                          <SelectItem value="video">Video</SelectItem>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.name}>
+                              {category.name.charAt(0).toUpperCase() + category.name.slice(1)}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
