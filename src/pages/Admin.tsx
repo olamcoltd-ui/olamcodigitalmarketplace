@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Edit, Plus, Eye, Download, DollarSign, Users } from "lucide-react";
 import { toast } from "sonner";
 import FileUpload from "@/components/FileUpload";
+import OrdersManagement from "@/components/OrdersManagement";
+import UsersManagement from "@/components/UsersManagement";
 
 interface Product {
   id: string;
@@ -332,16 +334,16 @@ const Admin = () => {
                     </div>
                     <div>
                       <Label htmlFor="thumbnail_url">Thumbnail</Label>
-                      <FileUpload
-                        onFileUpload={(url, fileName, fileSize) => {
-                          setFormData({ ...formData, thumbnail_url: url });
-                          toast.success("Thumbnail uploaded successfully");
-                        }}
-                        acceptedTypes="image/*"
-                        maxSize={5}
-                        bucketName="product-images"
-                        folder="thumbnails"
-                      />
+                       <FileUpload
+                         onFileUpload={(url, fileName, fileSize) => {
+                           setFormData({ ...formData, thumbnail_url: url });
+                           toast.success("Thumbnail uploaded successfully");
+                         }}
+                         acceptedTypes="image/*"
+                         maxSize={10}
+                         bucketName="product-images"
+                         folder="thumbnails"
+                       />
                       {formData.thumbnail_url && (
                         <Input
                           id="thumbnail_url"
@@ -354,16 +356,16 @@ const Admin = () => {
                     </div>
                     <div>
                       <Label htmlFor="file_url">Product File</Label>
-                      <FileUpload
-                        onFileUpload={(url, fileName, fileSize) => {
-                          setFormData({ ...formData, file_url: url });
-                          toast.success("Product file uploaded successfully");
-                        }}
-                        acceptedTypes="*/*"
-                        maxSize={100}
-                        bucketName="product-files"
-                        folder="products"
-                      />
+                       <FileUpload
+                         onFileUpload={(url, fileName, fileSize) => {
+                           setFormData({ ...formData, file_url: url });
+                           toast.success("Product file uploaded successfully");
+                         }}
+                         acceptedTypes="*/*"
+                         maxSize={10240}
+                         bucketName="product-files"
+                         folder="products"
+                       />
                       {formData.file_url && (
                         <Input
                           id="file_url"
@@ -424,27 +426,11 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="orders">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Orders</CardTitle>
-                <CardDescription>Manage customer orders and payments</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Orders management coming soon...</p>
-              </CardContent>
-            </Card>
+            <OrdersManagement />
           </TabsContent>
 
           <TabsContent value="users">
-            <Card>
-              <CardHeader>
-                <CardTitle>User Management</CardTitle>
-                <CardDescription>View and manage registered users</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">User management coming soon...</p>
-              </CardContent>
-            </Card>
+            <UsersManagement />
           </TabsContent>
         </Tabs>
       </div>

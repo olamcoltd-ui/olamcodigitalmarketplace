@@ -153,36 +153,19 @@ const WalletPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Create withdrawal request
-      const { error: withdrawalError } = await supabase
-        .from("withdrawals")
-        .insert({
-          user_id: user.id,
+      // Process withdrawal using edge function
+      const { data, error } = await supabase.functions.invoke('process-withdrawal', {
+        body: {
           amount: amount,
-          fee: fee,
-          account_name: withdrawalForm.account_name,
-          account_number: withdrawalForm.account_number,
-          bank_name: withdrawalForm.bank_name,
-          status: "pending"
-        });
+          bankName: withdrawalForm.bank_name,
+          accountNumber: withdrawalForm.account_number,
+          accountName: withdrawalForm.account_name
+        }
+      });
 
-      if (withdrawalError) throw withdrawalError;
+      if (error) throw error;
 
-      // Update user profile with bank details
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          account_name: withdrawalForm.account_name,
-          account_number: withdrawalForm.account_number,
-          bank_name: withdrawalForm.bank_name,
-          wallet_balance: profile.wallet_balance - totalDeduction,
-          total_withdrawn: profile.total_withdrawn + amount
-        })
-        .eq("user_id", user.id);
-
-      if (profileError) throw profileError;
-
-      toast.success("Withdrawal request submitted successfully");
+      toast.success(data.withdrawal.message);
       setIsWithdrawDialogOpen(false);
       setWithdrawalForm({ amount: "", account_name: "", account_number: "", bank_name: "" });
       fetchData();

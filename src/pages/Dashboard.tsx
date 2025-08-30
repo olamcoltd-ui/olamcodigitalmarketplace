@@ -255,24 +255,31 @@ const Dashboard = () => {
             </Button>
           </Link>
           
-          <Link to="/earnings">
+          <Link to="/wallet">
             <Button variant="outline" className="w-full h-16 flex-col space-y-2">
               <TrendingUp className="h-6 w-6" />
               <span>View Earnings</span>
             </Button>
           </Link>
           
-          <Link to="/referrals">
+          <Link to="/profile">
             <Button variant="outline" className="w-full h-16 flex-col space-y-2">
               <Users className="h-6 w-6" />
               <span>My Referrals</span>
             </Button>
           </Link>
           
-          <Link to="/withdrawals">
+          <Link to="/wallet">
             <Button variant="outline" className="w-full h-16 flex-col space-y-2">
               <Wallet className="h-6 w-6" />
               <span>Withdraw Funds</span>
+            </Button>
+          </Link>
+          
+          <Link to="/profile">
+            <Button variant="outline" className="w-full h-16 flex-col space-y-2">
+              <Settings className="h-6 w-6" />
+              <span>Subscription Upgrade</span>
             </Button>
           </Link>
         </div>

@@ -95,58 +95,28 @@ serve(async (req) => {
         throw new Error('Failed to update order')
       }
 
-      // Process commissions
-      await Promise.all([
-        // Update seller wallet
-        supabaseService.rpc('update_wallet_balance', {
-          user_uuid: order.user_id,
-          amount_change: order.seller_commission
-        }),
+      // Process commission using the new edge function
+      try {
+        await supabaseService.functions.invoke('process-commission', {
+          body: {
+            orderId: order.id,
+            buyerId: order.user_id,
+            productId: order.product_id,
+            amount: order.amount,
+            referrerId: order.referrer_id
+          }
+        });
+      } catch (commissionError) {
+        console.error("Commission processing error:", commissionError);
+        // Don't fail the payment verification if commission processing fails
+      }
 
-        // Update referrer wallet if applicable
-        order.referrer_id ? supabaseService.rpc('update_wallet_balance', {
-          user_uuid: order.referrer_id,
-          amount_change: order.referrer_commission
-        }) : Promise.resolve(),
-
-        // Update admin wallet
-        supabaseService
-          .from('admin_wallet')
-          .update({
-            balance: supabaseService.raw('balance + ?', [order.admin_share]),
-            total_earned: supabaseService.raw('total_earned + ?', [order.admin_share])
-          })
-          .eq('id', supabaseService.raw('(SELECT id FROM admin_wallet LIMIT 1)')),
-
-        // Create transaction records
-        supabaseService
-          .from('transactions')
-          .insert([
-            {
-              user_id: order.user_id,
-              type: 'commission',
-              amount: order.seller_commission,
-              description: 'Product sale commission',
-              reference: reference,
-              metadata: { product_id: order.product_id, order_id: order.id }
-            },
-            ...(order.referrer_id ? [{
-              user_id: order.referrer_id,
-              type: 'referral_commission',
-              amount: order.referrer_commission,
-              description: 'Referral commission',
-              reference: reference,
-              metadata: { product_id: order.product_id, order_id: order.id, referred_user: order.user_id }
-            }] : [])
-          ]),
-
-        // Generate download URL
-        supabaseService.rpc('generate_download_url', {
-          p_user_id: order.user_id,
-          p_order_id: order.id,
-          p_product_id: order.product_id
-        })
-      ])
+      // Generate download URL
+      await supabaseService.rpc('generate_download_url', {
+        p_user_id: order.user_id,
+        p_order_id: order.id,
+        p_product_id: order.product_id
+      })
 
       // Update product download count
       await supabaseService
