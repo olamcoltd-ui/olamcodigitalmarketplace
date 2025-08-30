@@ -272,6 +272,9 @@ const FileUpload = ({
       // Show immediate feedback
       toast.info(`Processing ${droppedFiles.length} file(s)...`);
     }
+    
+    // Ensure the event doesn't bubble up and trigger any form actions
+    return false;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -340,9 +343,14 @@ const FileUpload = ({
             Maximum file size: {maxSize}MB • Large files supported with retry logic
           </p>
           <Button 
-            onClick={() => fileInputRef.current?.click()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              fileInputRef.current?.click();
+            }}
             variant={isDragging ? "default" : "outline"}
             className="transition-all"
+            type="button"
           >
             Choose Files
           </Button>
@@ -352,7 +360,10 @@ const FileUpload = ({
             multiple
             accept={acceptedTypes}
             className="hidden"
-            onChange={(e) => handleFileSelect(e.target.files)}
+            onChange={(e) => {
+              e.stopPropagation();
+              handleFileSelect(e.target.files);
+            }}
           />
         </CardContent>
       </Card>
@@ -387,8 +398,13 @@ const FileUpload = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => removeFile(index)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      removeFile(index);
+                    }}
                     disabled={file.uploading}
+                    type="button"
                   >
                     <X className="h-4 w-4" />
                   </Button>
