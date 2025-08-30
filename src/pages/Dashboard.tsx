@@ -276,27 +276,39 @@ const Dashboard = () => {
             </Button>
           </Link>
           
-          <Link to="/profile">
-            <Button variant="outline" className="w-full h-16 flex-col space-y-2">
-              <Settings className="h-6 w-6" />
-              <span>Subscription Upgrade</span>
-            </Button>
-          </Link>
         </div>
 
         {/* Navigation Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="profile">
+            <TabsTrigger 
+              value="overview"
+              onClick={() => navigate('/dashboard')}
+              className="cursor-pointer"
+            >
+              Overview
+            </TabsTrigger>
+            <TabsTrigger 
+              value="profile"
+              onClick={() => navigate('/profile')}
+              className="cursor-pointer"
+            >
               <User className="h-4 w-4 mr-2" />
               Profile
             </TabsTrigger>
-            <TabsTrigger value="wallet">
+            <TabsTrigger 
+              value="wallet"
+              onClick={() => navigate('/wallet')}
+              className="cursor-pointer"
+            >
               <Wallet className="h-4 w-4 mr-2" />
               Wallet
             </TabsTrigger>
-            <TabsTrigger value="analytics">
+            <TabsTrigger 
+              value="analytics"
+              onClick={() => navigate('/analytics')}
+              className="cursor-pointer"
+            >
               <BarChart3 className="h-4 w-4 mr-2" />
               Analytics
             </TabsTrigger>

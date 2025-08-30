@@ -83,6 +83,10 @@ const FileUpload = ({
       
       console.log("Uploading file to bucket:", bucketName, "with path:", fileName);
       
+      // Create FormData for better mobile compatibility
+      const formData = new FormData();
+      formData.append('file', file);
+      
       // Add retry logic and better error handling
       let uploadAttempts = 0;
       const maxAttempts = 3;
@@ -93,8 +97,7 @@ const FileUpload = ({
             .from(bucketName)
             .upload(fileName, file, {
               cacheControl: '3600',
-              upsert: false,
-              duplex: 'half' // Add this for better compatibility with large files
+              upsert: false
             });
 
           if (error) {
