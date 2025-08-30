@@ -54,7 +54,9 @@ const Admin = () => {
     price: "",
     category: "",
     file_url: "",
-    thumbnail_url: ""
+    thumbnail_url: "",
+    fileName: "",
+    fileSize: 0
   });
 
   useEffect(() => {
@@ -159,7 +161,7 @@ const Admin = () => {
       // Only close dialog and reset form after successful save
       setIsDialogOpen(false);
       setSelectedProduct(null);
-      setFormData({ title: "", description: "", price: "", category: "", file_url: "", thumbnail_url: "" });
+      setFormData({ title: "", description: "", price: "", category: "", file_url: "", thumbnail_url: "", fileName: "", fileSize: 0 });
       fetchData();
     } catch (error) {
       console.error("Error saving product:", error);
@@ -175,7 +177,9 @@ const Admin = () => {
       price: product.price.toString(),
       category: product.category || "",
       file_url: product.file_url || "",
-      thumbnail_url: product.thumbnail_url || ""
+      thumbnail_url: product.thumbnail_url || "",
+      fileName: "",
+      fileSize: 0
     });
     setIsDialogOpen(true);
   };
@@ -289,7 +293,7 @@ const Admin = () => {
                 <DialogTrigger asChild>
                   <Button onClick={() => {
                     setSelectedProduct(null);
-                    setFormData({ title: "", description: "", price: "", category: "", file_url: "", thumbnail_url: "" });
+                    setFormData({ title: "", description: "", price: "", category: "", file_url: "", thumbnail_url: "", fileName: "", fileSize: 0 });
                   }}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Product
@@ -374,7 +378,12 @@ const Admin = () => {
                        <Label htmlFor="file_url">Product File</Label>
                        <FileUpload
                          onFileUpload={(url, fileName, fileSize) => {
-                           setFormData({ ...formData, file_url: url });
+                           setFormData({ 
+                             ...formData, 
+                             file_url: url,
+                             fileName: fileName,
+                             fileSize: fileSize
+                           });
                          }}
                          acceptedTypes="*/*"
                          maxSize={10240}
@@ -382,14 +391,26 @@ const Admin = () => {
                          folder="products"
                        />
                        {formData.file_url && (
-                         <div className="mt-2 p-3 bg-muted rounded-lg">
+                         <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                            <div className="flex items-center gap-2">
                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                             <span className="text-sm font-medium">Product file uploaded successfully</span>
+                             <span className="text-sm font-medium text-green-700">✓ Product file uploaded successfully</span>
                            </div>
-                           <p className="text-xs text-muted-foreground mt-1">
-                             File is ready for download after product creation
-                           </p>
+                           <div className="mt-2 space-y-1">
+                             {formData.fileName && (
+                               <p className="text-xs text-muted-foreground">
+                                 <strong>File:</strong> {formData.fileName}
+                               </p>
+                             )}
+                             {formData.fileSize && (
+                               <p className="text-xs text-muted-foreground">
+                                 <strong>Size:</strong> {(formData.fileSize / (1024 * 1024)).toFixed(2)} MB
+                               </p>
+                             )}
+                             <p className="text-xs text-muted-foreground">
+                               File is ready for download after product creation
+                             </p>
+                           </div>
                          </div>
                        )}
                      </div>
