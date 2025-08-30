@@ -198,6 +198,17 @@ const Admin = () => {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     try {
+      // First delete related analytics records to avoid foreign key constraint
+      const { error: analyticsError } = await supabase
+        .from("analytics")
+        .delete()
+        .eq("product_id", productId);
+
+      if (analyticsError) {
+        console.error("Error deleting analytics:", analyticsError);
+      }
+
+      // Then delete the product
       const { error } = await supabase
         .from("products")
         .delete()
