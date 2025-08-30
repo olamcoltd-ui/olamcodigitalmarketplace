@@ -162,6 +162,7 @@ export type Database = {
           created_at: string | null
           download_expires_at: string | null
           download_url: string | null
+          guest_email: string | null
           id: string
           payment_reference: string | null
           payment_status: string | null
@@ -179,6 +180,7 @@ export type Database = {
           created_at?: string | null
           download_expires_at?: string | null
           download_url?: string | null
+          guest_email?: string | null
           id?: string
           payment_reference?: string | null
           payment_status?: string | null
@@ -196,6 +198,7 @@ export type Database = {
           created_at?: string | null
           download_expires_at?: string | null
           download_url?: string | null
+          guest_email?: string | null
           id?: string
           payment_reference?: string | null
           payment_status?: string | null
