@@ -45,7 +45,42 @@ serve(async (req) => {
     )
 
     if (transaction.status === 'success') {
-      // Update order status
+      // Handle subscription payments
+      if (transaction.metadata?.type === 'subscription') {
+        const { error: profileError } = await supabaseService
+          .from('profiles')
+          .update({
+            subscription_plan: transaction.metadata.plan_name,
+            active_subscription: true,
+            subscription_start_date: new Date().toISOString(),
+            subscription_end_date: new Date(Date.now() + (transaction.metadata.duration_months * 30 * 24 * 60 * 60 * 1000)).toISOString()
+          })
+          .eq('user_id', transaction.metadata.user_id)
+
+        if (profileError) throw profileError
+
+        // Update subscription order
+        const { error: orderError } = await supabaseService
+          .from('orders')
+          .update({ payment_status: 'completed' })
+          .eq('payment_reference', reference)
+
+        if (orderError) throw orderError
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            type: 'subscription',
+            message: 'Subscription activated successfully'
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          }
+        )
+      }
+
+      // Handle regular product purchases (existing logic)
       const { data: order, error: orderError } = await supabaseService
         .from('orders')
         .update({ 

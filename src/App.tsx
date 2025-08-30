@@ -8,6 +8,17 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
+import ProductDetail from "./pages/ProductDetail";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import Admin from "./pages/Admin";
+import Wallet from "./pages/Wallet";
+import Profile from "./pages/Profile";
+import Analytics from "./pages/Analytics";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import Download from "./pages/Download";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,7 +35,17 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/products/:id" element={<ProductDetail />} />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/download/:token" element={<Download />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

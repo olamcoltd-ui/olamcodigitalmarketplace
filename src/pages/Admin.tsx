@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Edit, Plus, Eye, Download, DollarSign, Users } from "lucide-react";
 import { toast } from "sonner";
+import FileUpload from "@/components/FileUpload";
 
 interface Product {
   id: string;
@@ -330,21 +331,48 @@ const Admin = () => {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="file_url">File URL</Label>
-                      <Input
-                        id="file_url"
-                        value={formData.file_url}
-                        onChange={(e) => setFormData({ ...formData, file_url: e.target.value })}
-                        required
+                      <Label htmlFor="thumbnail_url">Thumbnail</Label>
+                      <FileUpload
+                        onFileUpload={(url, fileName, fileSize) => {
+                          setFormData({ ...formData, thumbnail_url: url });
+                          toast.success("Thumbnail uploaded successfully");
+                        }}
+                        acceptedTypes="image/*"
+                        maxSize={5}
+                        bucketName="product-images"
+                        folder="thumbnails"
                       />
+                      {formData.thumbnail_url && (
+                        <Input
+                          id="thumbnail_url"
+                          value={formData.thumbnail_url}
+                          onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
+                          className="mt-2"
+                          placeholder="Or enter thumbnail URL manually"
+                        />
+                      )}
                     </div>
                     <div>
-                      <Label htmlFor="thumbnail_url">Thumbnail URL</Label>
-                      <Input
-                        id="thumbnail_url"
-                        value={formData.thumbnail_url}
-                        onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
+                      <Label htmlFor="file_url">Product File</Label>
+                      <FileUpload
+                        onFileUpload={(url, fileName, fileSize) => {
+                          setFormData({ ...formData, file_url: url });
+                          toast.success("Product file uploaded successfully");
+                        }}
+                        acceptedTypes="*/*"
+                        maxSize={100}
+                        bucketName="product-files"
+                        folder="products"
                       />
+                      {formData.file_url && (
+                        <Input
+                          id="file_url"
+                          value={formData.file_url}
+                          onChange={(e) => setFormData({ ...formData, file_url: e.target.value })}
+                          className="mt-2"
+                          placeholder="Or enter file URL manually"
+                        />
+                      )}
                     </div>
                     <Button type="submit" className="w-full">
                       {selectedProduct ? "Update Product" : "Create Product"}

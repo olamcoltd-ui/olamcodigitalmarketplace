@@ -18,6 +18,17 @@ const Landing = () => {
               Olamco Digital Hub
             </span>
           </div>
+          <nav className="hidden md:flex items-center space-x-6">
+            <Link to="/products" className="text-muted-foreground hover:text-primary transition-colors">
+              Products
+            </Link>
+            <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors">
+              About
+            </Link>
+            <Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors">
+              Contact
+            </Link>
+          </nav>
           <div className="flex items-center space-x-4">
             <Link to="/products">
               <Button variant="ghost">Browse Products</Button>

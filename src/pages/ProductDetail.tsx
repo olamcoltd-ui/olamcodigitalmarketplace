@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Download, Eye, Heart, Share2, ShoppingCart, Star } from "lucide-react";
+import { ArrowLeft, Download, Eye, Heart, ShoppingCart, Star } from "lucide-react";
 import { toast } from "sonner";
+import SocialShare from "@/components/SocialShare";
 
 interface Product {
   id: string;
@@ -210,9 +211,11 @@ const ProductDetail = () => {
                   <p className="text-sm text-muted-foreground">One-time purchase</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleShare}>
-                    <Share2 className="h-4 w-4" />
-                  </Button>
+                  <SocialShare 
+                    url={window.location.href}
+                    title={product.title}
+                    description={product.description}
+                  />
                   <Button variant="outline" size="sm">
                     <Heart className="h-4 w-4" />
                   </Button>
