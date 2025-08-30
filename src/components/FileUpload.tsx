@@ -65,7 +65,14 @@ const FileUpload = ({
 
   const uploadFile = async (file: File, fileIndex: number) => {
     try {
-      const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`;
+      // Create a unique filename with timestamp and random string
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(7);
+      const fileExtension = file.name.split('.').pop();
+      const baseName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+      const fileName = `${folder}/${timestamp}-${randomString}-${baseName}.${fileExtension}`;
+      
+      console.log("Uploading file to bucket:", bucketName, "with path:", fileName);
       
       const { data, error } = await supabase.storage
         .from(bucketName)
@@ -74,12 +81,19 @@ const FileUpload = ({
           upsert: false
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Storage upload error:", error);
+        throw error;
+      }
+
+      console.log("Upload successful, getting public URL for:", fileName);
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from(bucketName)
         .getPublicUrl(fileName);
+
+      console.log("Public URL generated:", publicUrl);
 
       // Update file state
       setFiles(prev => prev.map((f, i) => 
@@ -94,7 +108,7 @@ const FileUpload = ({
 
     } catch (error) {
       console.error("Error uploading file:", error);
-      toast.error(`Failed to upload ${file.name}`);
+      toast.error(`Failed to upload ${file.name}: ${error.message || 'Unknown error'}`);
       
       // Update file state to show error
       setFiles(prev => prev.map((f, i) => 
@@ -120,14 +134,13 @@ const FileUpload = ({
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Check if the related target is outside the drag container
-    const rect = e.currentTarget.getBoundingClientRect();
-    const isOutside = e.clientX < rect.left || e.clientX > rect.right || 
-                     e.clientY < rect.top || e.clientY > rect.bottom;
-    
-    if (isOutside || !e.currentTarget.contains(e.relatedTarget as Node)) {
-      setIsDragging(false);
-    }
+    // Use a timeout to check if we're really leaving the drag area
+    setTimeout(() => {
+      const dragArea = e.currentTarget as HTMLElement;
+      if (!dragArea.matches(':hover')) {
+        setIsDragging(false);
+      }
+    }, 50);
   };
 
   const handleDragOver = (e: React.DragEvent) => {

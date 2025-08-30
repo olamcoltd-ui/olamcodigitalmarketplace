@@ -335,27 +335,49 @@ const Admin = () => {
                      <div>
                        <Label htmlFor="thumbnail_url">Product Thumbnail</Label>
                        <FileUpload
-                         onFileUpload={(url) => setFormData({ ...formData, thumbnail_url: url })}
+                         onFileUpload={(url, fileName) => setFormData({ ...formData, thumbnail_url: url })}
                          acceptedTypes="image/*"
                          maxSize={10}
                          bucketName="product-images"
                          folder="thumbnails"
                        />
                        {formData.thumbnail_url && (
-                         <p className="text-sm text-muted-foreground mt-2">Thumbnail uploaded successfully</p>
+                         <div className="mt-2 space-y-2">
+                           <div className="relative w-32 h-32 border border-border rounded-lg overflow-hidden">
+                             <img 
+                               src={formData.thumbnail_url} 
+                               alt="Product thumbnail preview" 
+                               className="w-full h-full object-cover"
+                               onError={(e) => {
+                                 e.currentTarget.src = '/placeholder.svg';
+                               }}
+                             />
+                           </div>
+                           <p className="text-sm text-green-600">✓ Thumbnail uploaded successfully</p>
+                         </div>
                        )}
                      </div>
                      <div>
                        <Label htmlFor="file_url">Product File</Label>
                        <FileUpload
-                         onFileUpload={(url) => setFormData({ ...formData, file_url: url })}
+                         onFileUpload={(url, fileName, fileSize) => {
+                           setFormData({ ...formData, file_url: url });
+                         }}
                          acceptedTypes="*/*"
                          maxSize={10240}
                          bucketName="product-files"
                          folder="products"
                        />
                        {formData.file_url && (
-                         <p className="text-sm text-muted-foreground mt-2">Product file uploaded successfully</p>
+                         <div className="mt-2 p-3 bg-muted rounded-lg">
+                           <div className="flex items-center gap-2">
+                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                             <span className="text-sm font-medium">Product file uploaded successfully</span>
+                           </div>
+                           <p className="text-xs text-muted-foreground mt-1">
+                             File is ready for download after product creation
+                           </p>
+                         </div>
                        )}
                      </div>
                     <Button type="submit" className="w-full">
