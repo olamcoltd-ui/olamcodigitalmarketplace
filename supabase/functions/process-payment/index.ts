@@ -39,10 +39,11 @@ serve(async (req) => {
 
       const { data, error } = await supabaseService.functions.invoke('process-free-download', {
         body: { product_id, referrer_code, guest_email },
-        headers: authHeader ? { Authorization: authHeader } : {}
+        headers: authHeader ? { Authorization: authHeader } : undefined
       })
 
       if (error) {
+        console.error('Free download error:', error)
         throw new Error('Failed to process free download')
       }
 
