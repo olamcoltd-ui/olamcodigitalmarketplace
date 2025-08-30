@@ -334,24 +334,21 @@ const Admin = () => {
                     </div>
                      <div>
                        <Label htmlFor="thumbnail_url">Product Thumbnail</Label>
-                        <FileUpload
-                          onFileUpload={(url) => setFormData({ ...formData, thumbnail_url: url })}
-                          acceptedTypes="image/*"
-                          maxSize={10}
-                          bucketName="product-images"
-                          folder="thumbnails"
-                        />
+                       <FileUpload
+                         onFileUpload={(url) => setFormData({ ...formData, thumbnail_url: url })}
+                         acceptedTypes="image/*"
+                         maxSize={10}
+                         bucketName="product-images"
+                         folder="thumbnails"
+                       />
                        {formData.thumbnail_url && (
                          <p className="text-sm text-muted-foreground mt-2">Thumbnail uploaded successfully</p>
                        )}
-                    </div>
-                    <div>
-                      <Label htmlFor="file_url">Product File</Label>
+                     </div>
+                     <div>
+                       <Label htmlFor="file_url">Product File</Label>
                        <FileUpload
-                         onFileUpload={(url, fileName, fileSize) => {
-                           setFormData({ ...formData, file_url: url });
-                           toast.success("Product file uploaded successfully");
-                         }}
+                         onFileUpload={(url) => setFormData({ ...formData, file_url: url })}
                          acceptedTypes="*/*"
                          maxSize={10240}
                          bucketName="product-files"
@@ -360,7 +357,7 @@ const Admin = () => {
                        {formData.file_url && (
                          <p className="text-sm text-muted-foreground mt-2">Product file uploaded successfully</p>
                        )}
-                    </div>
+                     </div>
                     <Button type="submit" className="w-full">
                       {selectedProduct ? "Update Product" : "Create Product"}
                     </Button>
