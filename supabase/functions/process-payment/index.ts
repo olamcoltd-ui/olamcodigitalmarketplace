@@ -30,27 +30,90 @@ serve(async (req) => {
 
     const { product_id, amount, referrer_code, guest_email } = await req.json()
 
-    // Handle free products - redirect to free download processing
+    // Handle free products - process directly without calling another function
     if (amount === 0) {
       const supabaseService = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
 
-      const { data, error } = await supabaseService.functions.invoke('process-free-download', {
-        body: { product_id, referrer_code, guest_email },
-        headers: authHeader ? { Authorization: authHeader } : undefined
+      // Determine email for order (user email or guest email)
+      const orderEmail = user?.email || guest_email || 'guest@example.com';
+      const userId = user?.id || null;
+
+      // Get referrer info if referrer_code is provided
+      let referrerId = null
+      if (referrer_code) {
+        const { data: referrerData } = await supabaseService
+          .from('profiles')
+          .select('user_id')
+          .eq('referral_code', referrer_code)
+          .single()
+        
+        if (referrerData) {
+          referrerId = referrerData.user_id
+        }
+      }
+
+      // Generate a unique reference for free download
+      const reference = `free_${Date.now()}_${userId || 'guest'}`
+
+      // Create order for free product
+      const { data: order, error: orderError } = await supabaseService
+        .from('orders')
+        .insert({
+          user_id: userId,
+          product_id,
+          amount: 0,
+          payment_reference: reference,
+          payment_status: 'completed',
+          referrer_id: referrerId,
+          seller_commission: 0,
+          admin_share: 0,
+          referrer_commission: 0,
+          commission_rate: 0,
+          guest_email: !userId ? orderEmail : null,
+          download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        })
+        .select('*')
+        .single()
+
+      if (orderError || !order) {
+        console.error('Order creation error:', orderError)
+        throw new Error('Failed to create free download order')
+      }
+
+      // Generate download URL
+      const { data: downloadUrl, error: downloadError } = await supabaseService.rpc('generate_download_url', {
+        p_user_id: order.user_id,
+        p_order_id: order.id,
+        p_product_id: order.product_id
       })
 
-      if (error) {
-        console.error('Free download error:', error)
-        throw new Error('Failed to process free download')
+      // Update product download count
+      const { data: currentProduct } = await supabaseService
+        .from('products')
+        .select('download_count')
+        .eq('id', order.product_id)
+        .single()
+
+      if (currentProduct) {
+        await supabaseService
+          .from('products')
+          .update({
+            download_count: (currentProduct.download_count || 0) + 1
+          })
+          .eq('id', order.product_id)
       }
 
       return new Response(
         JSON.stringify({
           is_free: true,
-          ...data
+          success: true,
+          order: order,
+          download_url: downloadUrl,
+          reference: reference,
+          message: 'Free download processed successfully'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
