@@ -30,7 +30,35 @@ serve(async (req) => {
 
     const { product_id, amount, referrer_code, guest_email } = await req.json()
 
-    // Initialize Paystack
+    // Handle free products - redirect to free download processing
+    if (amount === 0) {
+      const supabaseService = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+
+      const { data, error } = await supabaseService.functions.invoke('process-free-download', {
+        body: { product_id, referrer_code, guest_email },
+        headers: authHeader ? { Authorization: authHeader } : {}
+      })
+
+      if (error) {
+        throw new Error('Failed to process free download')
+      }
+
+      return new Response(
+        JSON.stringify({
+          is_free: true,
+          ...data
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
+
+    // Initialize Paystack for paid products
     const paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY')
     if (!paystackSecretKey) {
       throw new Error('Paystack secret key not configured')

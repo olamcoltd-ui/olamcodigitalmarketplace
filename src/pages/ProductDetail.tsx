@@ -92,7 +92,14 @@ const ProductDetail = () => {
 
       if (error) throw error;
 
-      // Redirect to Paystack payment page
+      // Handle free products
+      if (data.is_free) {
+        toast.success("Free download processed! Redirecting to download page...");
+        navigate(`/payment-success?reference=${data.reference}`);
+        return;
+      }
+
+      // Redirect to Paystack payment page for paid products
       window.location.href = data.authorization_url;
     } catch (error) {
       console.error("Error processing payment:", error);
@@ -216,8 +223,12 @@ const ProductDetail = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-3xl font-bold text-primary">₦{product.price.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">One-time purchase</p>
+                  <p className="text-3xl font-bold text-primary">
+                    {product.price === 0 ? "FREE" : `₦${product.price.toLocaleString()}`}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {product.price === 0 ? "Free download" : "One-time purchase"}
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <SocialShare 
@@ -237,12 +248,24 @@ const ProductDetail = () => {
                 className="w-full bg-gradient-primary hover:opacity-90 text-white"
                 size="lg"
               >
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                {purchasing ? "Processing..." : "Purchase Now"}
+                {product.price === 0 ? (
+                  <>
+                    <Download className="h-5 w-5 mr-2" />
+                    {purchasing ? "Processing..." : "Download Free"}
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="h-5 w-5 mr-2" />
+                    {purchasing ? "Processing..." : "Purchase Now"}
+                  </>
+                )}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
-                Secure payment powered by Paystack. Instant download after payment.
+                {product.price === 0 
+                  ? "Free download. Click to start downloading immediately."
+                  : "Secure payment powered by Paystack. Instant download after payment."
+                }
               </p>
             </div>
 
