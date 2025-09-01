@@ -170,6 +170,7 @@ export type Database = {
           referrer_commission: number | null
           referrer_id: string | null
           seller_commission: number | null
+          status: string | null
           updated_at: string | null
           user_id: string | null
         }
@@ -188,6 +189,7 @@ export type Database = {
           referrer_commission?: number | null
           referrer_id?: string | null
           seller_commission?: number | null
+          status?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -206,6 +208,7 @@ export type Database = {
           referrer_commission?: number | null
           referrer_id?: string | null
           seller_commission?: number | null
+          status?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -242,6 +245,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           download_count: number | null
+          download_url: string | null
           file_size_mb: number | null
           file_type: string | null
           file_url: string | null
@@ -262,6 +266,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           download_count?: number | null
+          download_url?: string | null
           file_size_mb?: number | null
           file_type?: string | null
           file_url?: string | null
@@ -282,6 +287,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           download_count?: number | null
+          download_url?: string | null
           file_size_mb?: number | null
           file_type?: string | null
           file_url?: string | null
@@ -423,36 +429,71 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
-          commission_rate: number
+          commission_percent: number
           created_at: string | null
-          duration_months: number
+          duration: unknown
           features: string[] | null
           id: string
-          is_active: boolean | null
           name: string
           price: number
         }
         Insert: {
-          commission_rate: number
+          commission_percent: number
           created_at?: string | null
-          duration_months: number
+          duration: unknown
           features?: string[] | null
           id?: string
-          is_active?: boolean | null
           name: string
-          price: number
+          price?: number
         }
         Update: {
-          commission_rate?: number
+          commission_percent?: number
           created_at?: string | null
-          duration_months?: number
+          duration?: unknown
           features?: string[] | null
           id?: string
-          is_active?: boolean | null
           name?: string
           price?: number
         }
         Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          end_date: string
+          id: string
+          plan_id: string
+          start_date: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          end_date: string
+          id?: string
+          plan_id: string
+          start_date?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          end_date?: string
+          id?: string
+          plan_id?: string
+          start_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transactions: {
         Row: {
