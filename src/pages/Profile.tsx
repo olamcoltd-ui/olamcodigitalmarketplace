@@ -35,9 +35,9 @@ interface Profile {
 interface SubscriptionPlan {
   name: string;
   price: number;
-  commission_rate: number;
+  commission_percent: number;
   features: string[];
-  duration_months: number;
+  duration: any;
 }
 
 const ProfilePage = () => {
@@ -97,7 +97,6 @@ const ProfilePage = () => {
       const { data: plansData, error: plansError } = await supabase
         .from("subscription_plans")
         .select("*")
-        .eq("is_active", true)
         .order("price");
 
       if (plansError) throw plansError;
@@ -469,13 +468,13 @@ const ProfilePage = () => {
                     </CardTitle>
                     <CardDescription>
                       <span className="text-2xl font-bold">₦{plan.price.toLocaleString()}</span>
-                      {plan.price > 0 && <span className="text-sm">/{plan.duration_months}mo</span>}
+                      {plan.price > 0 && <span className="text-sm">/period</span>}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
                       <p className="text-sm font-medium">
-                        Commission Rate: {(plan.commission_rate * 100).toFixed(0)}%
+                        Commission Rate: {plan.commission_percent}%
                       </p>
                       <ul className="space-y-1 text-sm">
                         {plan.features.map((feature, index) => (

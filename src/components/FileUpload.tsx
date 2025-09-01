@@ -106,9 +106,8 @@ const FileUpload = ({
 
   const uploadFile = async (file: File, fileIndex: number) => {
     try {
-      // Show immediate feedback with progress tracking for large files
-      const largeFileThreshold = 100 * 1024 * 1024; // 100MB
-      const isLargeFile = file.size > largeFileThreshold;
+      // Remove file size restrictions - allow unlimited uploads
+      const isLargeFile = false; // Always treat as normal upload for simplicity
       toast.info(`${isLargeFile ? 'Large file detected - ' : ''}Starting upload for ${file.name}...`);
 
       console.log(`Uploading ${isLargeFile ? 'large ' : ''}file: ${file.name} (${formatFileSize(file.size)})`);

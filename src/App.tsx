@@ -15,6 +15,8 @@ import Admin from "./pages/Admin";
 import Wallet from "./pages/Wallet";
 import Profile from "./pages/Profile";
 import Analytics from "./pages/Analytics";
+import Catalog from "./pages/Catalog";
+import Subscriptions from "./pages/Subscriptions";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Terms from "./pages/Terms";
@@ -52,6 +54,8 @@ const App: React.FC = () => {
               <Route path="/wallet" element={<Wallet />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/catalog" element={<Catalog />} />
+              <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/terms" element={<Terms />} />
