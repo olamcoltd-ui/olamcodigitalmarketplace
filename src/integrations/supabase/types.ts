@@ -614,6 +614,10 @@ export type Database = {
         Args: { user_uuid: string }
         Returns: number
       }
+      handle_checkout: {
+        Args: { p_product_id: string; p_user_id: string }
+        Returns: Json
+      }
       update_wallet_balance: {
         Args: { amount_change: number; user_uuid: string }
         Returns: undefined
