@@ -38,17 +38,27 @@ const Subscriptions = () => {
         .select('*')
         .order('price');
 
-      // Add free plan
+      // Add free plan manually since it's not in database
       const allPlans = [
         {
+          id: 'free',
           name: 'free',
           price: 0,
           commission_percent: 20,
+          commission_rate: 0.20,
           features: ['20% commission on sales', 'Basic analytics', 'Email support'],
           duration: null
-        },
-        ...(plans || [])
+        }
       ];
+
+      // Add database plans if they exist
+      if (plans && plans.length > 0) {
+        const dbPlans = plans.map(plan => ({
+          ...plan,
+          features: plan.features || [`${plan.commission_percent}% commission on sales`, 'Priority support', 'Advanced analytics']
+        }));
+        allPlans.push(...dbPlans);
+      }
 
       setSubscriptionPlans(allPlans);
     } catch (error) {
@@ -150,10 +160,10 @@ const Subscriptions = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-          {subscriptionPlans.map((plan) => (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          {subscriptionPlans.map((plan, index) => (
             <Card 
-              key={plan.name} 
+              key={`${plan.name}-${index}`}
               className={`shadow-elegant hover:shadow-glow transition-all duration-300 ${
                 plan.name === currentPlan ? 'ring-2 ring-primary bg-primary/5' : ''
               }`}
@@ -167,9 +177,9 @@ const Subscriptions = () => {
                 </CardTitle>
                 <div className="flex items-center justify-center space-x-2">
                   <span className="text-3xl font-bold text-primary">
-                    ₦{plan.price.toLocaleString()}
+                    ₦{plan.price?.toLocaleString() || 0}
                   </span>
-                  {plan.name !== 'free' && (
+                  {plan.name !== 'free' && plan.duration && (
                     <span className="text-muted-foreground">
                       /{plan.name === 'monthly' ? 'month' : plan.name === '6-month' ? '6 months' : 'year'}
                     </span>
@@ -180,14 +190,14 @@ const Subscriptions = () => {
               <CardContent className="space-y-4">
                 <div className="text-center mb-4">
                   <div className="text-2xl font-bold text-success">
-                    {plan.commission_percent}% Commission
+                    {plan.commission_percent || plan.commission_rate * 100}% Commission
                   </div>
                   <p className="text-sm text-muted-foreground">on every sale</p>
                 </div>
                 
                 <ul className="space-y-2">
-                  {plan.features?.map((feature: string, index: number) => (
-                    <li key={index} className="flex items-center text-sm">
+                  {plan.features?.map((feature: string, featureIndex: number) => (
+                    <li key={`${plan.name}-feature-${featureIndex}`} className="flex items-center text-sm">
                       <Check className="h-4 w-4 text-success mr-2 flex-shrink-0" />
                       {feature}
                     </li>

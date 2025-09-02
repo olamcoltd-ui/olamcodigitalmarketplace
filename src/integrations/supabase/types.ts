@@ -430,6 +430,7 @@ export type Database = {
       subscription_plans: {
         Row: {
           commission_percent: number
+          commission_rate: number | null
           created_at: string | null
           duration: unknown
           features: string[] | null
@@ -439,6 +440,7 @@ export type Database = {
         }
         Insert: {
           commission_percent: number
+          commission_rate?: number | null
           created_at?: string | null
           duration: unknown
           features?: string[] | null
@@ -448,6 +450,7 @@ export type Database = {
         }
         Update: {
           commission_percent?: number
+          commission_rate?: number | null
           created_at?: string | null
           duration?: unknown
           features?: string[] | null

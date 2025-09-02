@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Share, Download, Eye, ShoppingCart } from 'lucide-react';
+import { Search, Share, Download, Eye } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import olamcoLogo from '@/assets/olamco-logo.png';
+import PurchaseButton from '@/components/PurchaseButton';
 
 const Products = () => {
   const { user } = useAuth();
@@ -273,15 +274,12 @@ const Products = () => {
                       </Button>
                     </Link>
                     
-                    <Button 
-                      variant="glow" 
-                      size="sm" 
+                    <PurchaseButton
+                      product={product}
+                      size="sm"
+                      variant="glow"
                       className="flex-1"
-                      onClick={() => handlePurchase(product)}
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Buy
-                    </Button>
+                    />
                     
                     {user && (
                       <Button 

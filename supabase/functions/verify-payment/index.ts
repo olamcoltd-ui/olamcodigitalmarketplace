@@ -45,56 +45,90 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Handle successful transactions (including free products with ₦0 amount)
-    if (transaction.status === 'success' || (transaction.amount === 0 && paystackData.status)) {
-      console.log(`Processing ${transaction.amount === 0 ? 'free' : 'paid'} product verification`);
+    // Handle successful transactions
+    if (transaction.status === 'success') {
+      console.log('Processing successful payment verification');
+      
       // Handle subscription payments
       if (transaction.metadata?.type === 'subscription') {
-        const { error: profileError } = await supabaseService
-          .from('profiles')
-          .update({
-            subscription_plan: transaction.metadata.plan_name,
-            active_subscription: true,
-            subscription_start_date: new Date().toISOString(),
-            subscription_end_date: new Date(Date.now() + (transaction.metadata.duration_months * 30 * 24 * 60 * 60 * 1000)).toISOString()
-          })
-          .eq('user_id', transaction.metadata.user_id)
+        const planName = transaction.metadata.plan_name
+        const userId = transaction.metadata.user_id
 
-        if (profileError) throw profileError
+        if (userId && planName) {
+          // Get subscription plan details
+          const { data: plan } = await supabaseService
+            .from('subscription_plans')
+            .select('*')
+            .eq('name', planName)
+            .single()
 
-        // Update subscription order
-        const { error: orderError } = await supabaseService
-          .from('orders')
-          .update({ payment_status: 'completed' })
-          .eq('payment_reference', reference)
+          if (plan) {
+            // Calculate subscription end date
+            const startDate = new Date()
+            const endDate = new Date(startDate)
+            
+            // Parse duration from plan
+            const durationStr = plan.duration?.toString() || '1 month'
+            if (durationStr.includes('month')) {
+              const months = parseInt(durationStr.match(/\d+/)?.[0] || '1')
+              endDate.setMonth(endDate.getMonth() + months)
+            } else if (durationStr.includes('year')) {
+              const years = parseInt(durationStr.match(/\d+/)?.[0] || '1')
+              endDate.setFullYear(endDate.getFullYear() + years)
+            } else {
+              endDate.setMonth(endDate.getMonth() + 1) // Default to 1 month
+            }
 
-        if (orderError) throw orderError
+            // Update user profile with subscription
+            const { error: profileError } = await supabaseService
+              .from('profiles')
+              .update({
+                subscription_plan: planName,
+                active_subscription: true,
+                subscription_start_date: startDate.toISOString(),
+                subscription_end_date: endDate.toISOString()
+              })
+              .eq('user_id', userId)
 
-        return new Response(
-          JSON.stringify({
-            success: true,
-            type: 'subscription',
-            message: 'Subscription activated successfully'
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
+            if (profileError) {
+              console.error('Error updating subscription:', profileError)
+              throw new Error('Failed to update subscription')
+            }
           }
-        )
+
+          // Update subscription order
+          await supabaseService
+            .from('orders')
+            .update({ payment_status: 'completed' })
+            .eq('payment_reference', reference)
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              type: 'subscription',
+              message: 'Subscription activated successfully'
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 200,
+            }
+          )
+        }
       }
 
-      // Handle regular product purchases (existing logic)
+      // Handle regular product purchases
       const { data: order, error: orderError } = await supabaseService
         .from('orders')
         .update({ 
           payment_status: 'completed',
-          download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours from now
+          download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
         })
         .eq('payment_reference', reference)
         .select('*')
         .single()
 
       if (orderError || !order) {
+        console.error('Order update error:', orderError)
         throw new Error('Failed to update order')
       }
 
