@@ -41,8 +41,56 @@ serve(async (req) => {
     const userId = user?.id || null;
     const userIdForRef = userId || 'guest';
 
-    // Create Paystack transaction (even for free products)
-    console.log(`Processing ${amount === 0 ? 'free' : 'paid'} product payment for amount: ₦${amount}`)
+    // Handle free products immediately without Paystack
+    if (amount === 0) {
+      console.log('Processing free product - skipping Paystack')
+      
+      const freeReference = `free_${Date.now()}_${userIdForRef.toString().slice(0, 8)}`;
+      
+      // Create order for free product
+      const supabaseService = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+      
+      const { error: orderError } = await supabaseService
+        .from('orders')
+        .insert({
+          user_id: userId,
+          product_id,
+          amount: 0,
+          payment_reference: freeReference,
+          payment_status: 'completed',
+          referrer_id: null,
+          seller_commission: 0,
+          admin_share: 0,
+          referrer_commission: 0,
+          commission_rate: 0,
+          guest_email: !userId ? paymentEmail : null,
+          download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+        })
+
+      if (orderError) {
+        console.error('Free order creation error:', orderError)
+        throw new Error('Failed to create free order')
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          is_free: true,
+          reference: freeReference,
+          redirect_url: `${req.headers.get('origin')}/payment-success?reference=${freeReference}`
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
+
+    // Create Paystack transaction for paid products
+    console.log(`Processing paid product payment for amount: ₦${amount}`)
     
     const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
@@ -52,7 +100,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         email: paymentEmail,
-        amount: amount * 100, // Paystack expects amount in kobo (will be 0 for free products)
+        amount: amount * 100, // Paystack expects amount in kobo
         currency: 'NGN',
         reference: `order_${Date.now()}_${userIdForRef.toString().slice(0, 8)}`,
         callback_url: `${req.headers.get('origin')}/payment-success`,
@@ -62,7 +110,7 @@ serve(async (req) => {
           referrer_code,
           is_guest: !user,
           guest_email: !user ? paymentEmail : null,
-          is_free: amount === 0
+          is_free: false
         }
       })
     })
