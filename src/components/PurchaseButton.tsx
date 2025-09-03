@@ -30,8 +30,11 @@ const PurchaseButton = ({ product, className = "", size = "default", variant = "
   const handlePurchase = async (emailForPurchase?: string) => {
     setLoading(true);
     try {
+      console.log(`[PURCHASE-BUTTON] Starting purchase for product ${product.id}, price: ${product.price}`);
+      
       // For free products, handle directly without Paystack
       if (product.price === 0) {
+        console.log('[PURCHASE-BUTTON] Processing free product');
         const { data, error } = await supabase.functions.invoke('process-payment', {
           body: {
             product_id: product.id,
@@ -40,15 +43,18 @@ const PurchaseButton = ({ product, className = "", size = "default", variant = "
           }
         });
 
+        console.log('[PURCHASE-BUTTON] Free product response:', { data, error });
         if (error) throw error;
 
         if (data.is_free && data.redirect_url) {
+          console.log('[PURCHASE-BUTTON] Redirecting to:', data.redirect_url);
           window.location.href = data.redirect_url;
         }
         return;
       }
 
       // For paid products, initiate Paystack payment
+      console.log('[PURCHASE-BUTTON] Processing paid product');
       const { data, error } = await supabase.functions.invoke('process-payment', {
         body: {
           product_id: product.id,
@@ -57,15 +63,32 @@ const PurchaseButton = ({ product, className = "", size = "default", variant = "
         }
       });
 
+      console.log('[PURCHASE-BUTTON] Paid product response:', { data, error });
       if (error) throw error;
 
       if (data.authorization_url) {
+        console.log('[PURCHASE-BUTTON] Opening payment URL:', data.authorization_url);
         // Open Paystack checkout in new tab
         window.open(data.authorization_url, '_blank');
+      } else {
+        throw new Error("No payment URL received from server");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Purchase error:', error);
-      toast.error('Failed to process purchase');
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to process purchase";
+      if (error?.message) {
+        if (error.message.includes("Payment processing not configured")) {
+          errorMessage = "Payment system is currently unavailable. Please try again later.";
+        } else if (error.message.includes("Product not found")) {
+          errorMessage = "This product is no longer available.";
+        } else {
+          errorMessage = `Purchase error: ${error.message}`;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
       setShowGuestDialog(false);

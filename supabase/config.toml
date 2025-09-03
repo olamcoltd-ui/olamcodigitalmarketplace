@@ -1,5 +1,7 @@
 project_id = "rzpgtiqrbijrebktbebf"
 
+# Updated for enhanced payment processing and debugging
+
 [api]
 enabled = true
 port = 54321

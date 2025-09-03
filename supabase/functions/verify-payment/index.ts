@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper logging function for enhanced debugging
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[VERIFY-PAYMENT] ${step}${detailsStr}`);
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -13,14 +19,29 @@ serve(async (req) => {
   }
 
   try {
+    logStep('Function started');
+    
     const { reference } = await req.json()
+    logStep('Payment verification requested', { reference });
+
+    // Test secret access immediately
+    const paystackSecretTest = Deno.env.get('PAYSTACK_SECRET_KEY');
+    logStep('Secret access test', { 
+      hasSecret: !!paystackSecretTest, 
+      secretLength: paystackSecretTest?.length || 0,
+      secretPrefix: paystackSecretTest?.substring(0, 7) + '...' || 'none'
+    });
 
     // Initialize Paystack
     const paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY');
     if (!paystackSecretKey) {
-      console.error('Paystack secret key not found in environment variables');
+      logStep('CRITICAL ERROR: Paystack secret key not found');
+      const allEnvVars = Object.keys(Deno.env.toObject());
+      logStep('Available environment variables', { count: allEnvVars.length, vars: allEnvVars });
       throw new Error('Payment verification not configured. Please contact support.');
     }
+    
+    logStep('Paystack secret key found', { keyLength: paystackSecretKey.length });
 
     // Verify payment with Paystack
     const paystackResponse = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {

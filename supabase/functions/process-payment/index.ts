@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper logging function for enhanced debugging
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[PROCESS-PAYMENT] ${step}${detailsStr}`);
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -13,10 +19,21 @@ serve(async (req) => {
   }
 
   try {
+    logStep('Function started');
+    
+    // Test secret access immediately for debugging
+    const paystackSecretTest = Deno.env.get('PAYSTACK_SECRET_KEY');
+    logStep('Secret access test', { 
+      hasSecret: !!paystackSecretTest, 
+      secretLength: paystackSecretTest?.length || 0,
+      secretPrefix: paystackSecretTest?.substring(0, 7) + '...' || 'none'
+    });
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
+    logStep('Supabase client created');
 
     // Get the authenticated user (optional for guest purchases)
     let user = null;
@@ -26,18 +43,28 @@ serve(async (req) => {
       const token = authHeader.replace('Bearer ', '');
       const { data } = await supabaseClient.auth.getUser(token);
       user = data.user;
+      logStep('User authenticated', { userId: user?.id, email: user?.email });
+    } else {
+      logStep('No auth header - guest purchase');
     }
 
     const { product_id, amount, referrer_code, guest_email } = await req.json()
+    logStep('Request data received', { product_id, amount, referrer_code, guest_email });
 
     // Initialize Paystack only for paid products
     let paystackSecretKey = null;
     if (amount > 0) {
+      logStep('Processing paid product, checking Paystack secret');
       paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY');
       if (!paystackSecretKey) {
-        console.error('Paystack secret key not found in environment variables');
+        logStep('CRITICAL ERROR: Paystack secret key not found for paid product');
+        const allEnvVars = Object.keys(Deno.env.toObject());
+        logStep('Available environment variables', { count: allEnvVars.length, vars: allEnvVars });
         throw new Error('Payment processing not configured. Please contact support.');
       }
+      logStep('Paystack secret key found for paid product', { keyLength: paystackSecretKey.length });
+    } else {
+      logStep('Processing free product, Paystack not needed');
     }
 
     // Determine email for payment (user email or guest email)

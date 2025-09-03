@@ -144,22 +144,47 @@ const ProfilePage = () => {
   const handleSubscriptionUpgrade = async (planName: string) => {
     setSubscribing(true);
     try {
+      console.log(`[PROFILE] Starting subscription upgrade to: ${planName}`);
+      
       const { data, error } = await supabase.functions.invoke("process-subscription", {
         body: { plan_name: planName }
       });
 
-      if (error) throw error;
+      console.log(`[PROFILE] Subscription response:`, { data, error });
+
+      if (error) {
+        console.error(`[PROFILE] Subscription error:`, error);
+        throw error;
+      }
 
       if (planName === "free") {
         toast.success("Subscription updated to free plan");
         fetchData();
       } else {
-        // Open payment page in new tab
-        window.open(data.authorization_url, '_blank');
+        if (data?.authorization_url) {
+          console.log(`[PROFILE] Opening payment URL: ${data.authorization_url}`);
+          // Open payment page in new tab
+          window.open(data.authorization_url, '_blank');
+        } else {
+          throw new Error("No payment URL received from server");
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error processing subscription:", error);
-      toast.error("Failed to process subscription");
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to process subscription";
+      if (error?.message) {
+        if (error.message.includes("Payment processing not configured")) {
+          errorMessage = "Payment system is currently unavailable. Please try again later.";
+        } else if (error.message.includes("Invalid subscription plan")) {
+          errorMessage = "Selected subscription plan is not available.";
+        } else {
+          errorMessage = `Subscription error: ${error.message}`;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setSubscribing(false);
     }

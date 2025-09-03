@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper logging function for enhanced debugging
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[PROCESS-SUBSCRIPTION] ${step}${detailsStr}`);
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -13,28 +19,46 @@ serve(async (req) => {
   }
 
   try {
+    logStep('Function started');
+    
+    // Test secret access immediately
+    const paystackSecretTest = Deno.env.get('PAYSTACK_SECRET_KEY');
+    logStep('Secret access test', { 
+      hasSecret: !!paystackSecretTest, 
+      secretLength: paystackSecretTest?.length || 0,
+      secretPrefix: paystackSecretTest?.substring(0, 7) + '...' || 'none'
+    });
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
+    logStep('Supabase client created');
 
     // Get the authenticated user
     const authHeader = req.headers.get('Authorization')!
     const token = authHeader.replace('Bearer ', '')
+    logStep('Authenticating user');
+    
     const { data } = await supabaseClient.auth.getUser(token)
     const user = data.user
 
     if (!user) {
+      logStep('User authentication failed');
       throw new Error('User not authenticated')
     }
+    
+    logStep('User authenticated', { userId: user.id, email: user.email });
 
     const { plan_name } = await req.json()
+    logStep('Request data received', { plan_name });
 
     // Get subscription plan details
     const supabaseService = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+    logStep('Service client created');
 
     const { data: plan, error: planError } = await supabaseService
       .from('subscription_plans')
@@ -42,9 +66,14 @@ serve(async (req) => {
       .eq('name', plan_name)
       .single()
 
+    logStep('Subscription plan lookup', { planFound: !!plan, error: planError?.message });
+
     if (planError || !plan) {
-      throw new Error('Invalid subscription plan')
+      logStep('Plan lookup failed', { planError, plan_name });
+      throw new Error(`Invalid subscription plan: ${plan_name}`)
     }
+    
+    logStep('Plan details', { name: plan.name, price: plan.price });
 
     // For free plan, directly update user profile
     if (plan.name === 'free') {
@@ -75,13 +104,25 @@ serve(async (req) => {
     }
 
     // Initialize Paystack for paid plans
+    logStep('Initializing Paystack for paid plan');
     const paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY');
+    
     if (!paystackSecretKey) {
-      console.error('Paystack secret key not found in environment variables');
-      throw new Error('Payment processing not configured. Please contact support.');
+      logStep('CRITICAL ERROR: Paystack secret key not found');
+      const allEnvVars = Object.keys(Deno.env.toObject());
+      logStep('Available environment variables', { count: allEnvVars.length, vars: allEnvVars });
+      throw new Error('Payment processing not configured. Paystack secret key missing.');
     }
+    
+    logStep('Paystack secret key found', { keyLength: paystackSecretKey.length });
 
     // Create Paystack transaction for subscription
+    logStep('Creating Paystack transaction', { 
+      email: user.email, 
+      amount: plan.price * 100,
+      planName: plan.name 
+    });
+    
     const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
       headers: {
@@ -103,10 +144,21 @@ serve(async (req) => {
     })
 
     const paystackData = await paystackResponse.json()
+    logStep('Paystack response received', { 
+      status: paystackData.status, 
+      hasData: !!paystackData.data,
+      message: paystackData.message 
+    });
 
     if (!paystackData.status) {
-      throw new Error(paystackData.message || 'Failed to initialize subscription payment')
+      logStep('Paystack initialization failed', { response: paystackData });
+      throw new Error(`Paystack error: ${paystackData.message || 'Failed to initialize subscription payment'}`)
     }
+    
+    logStep('Paystack transaction created successfully', { 
+      reference: paystackData.data.reference,
+      authUrl: !!paystackData.data.authorization_url 
+    });
 
     // Store pending subscription info (will be activated after payment)
     const { error: orderError } = await supabaseService
@@ -121,15 +173,21 @@ serve(async (req) => {
       })
 
     if (orderError) {
-      console.error('Subscription order creation error:', orderError)
+      logStep('Order creation failed', { error: orderError });
       throw new Error('Failed to create subscription order')
     }
+    
+    logStep('Order created successfully');
+
+    const response = {
+      authorization_url: paystackData.data.authorization_url,
+      reference: paystackData.data.reference
+    };
+    
+    logStep('Function completed successfully', response);
 
     return new Response(
-      JSON.stringify({
-        authorization_url: paystackData.data.authorization_url,
-        reference: paystackData.data.reference
-      }),
+      JSON.stringify(response),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -137,9 +195,10 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Subscription processing error:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep('ERROR in process-subscription', { message: errorMessage, stack: error instanceof Error ? error.stack : undefined });
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
