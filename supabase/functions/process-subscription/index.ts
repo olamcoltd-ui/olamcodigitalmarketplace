@@ -75,9 +75,10 @@ serve(async (req) => {
     }
 
     // Initialize Paystack for paid plans
-    const paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY')
+    const paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY');
     if (!paystackSecretKey) {
-      throw new Error('Paystack secret key not configured')
+      console.error('Paystack secret key not found in environment variables');
+      throw new Error('Payment processing not configured. Please contact support.');
     }
 
     // Create Paystack transaction for subscription

@@ -30,10 +30,14 @@ serve(async (req) => {
 
     const { product_id, amount, referrer_code, guest_email } = await req.json()
 
-    // Initialize Paystack for ALL products (including free ones for consistency)
-    const paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY')
-    if (!paystackSecretKey) {
-      throw new Error('Paystack secret key not configured')
+    // Initialize Paystack only for paid products
+    let paystackSecretKey = null;
+    if (amount > 0) {
+      paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY');
+      if (!paystackSecretKey) {
+        console.error('Paystack secret key not found in environment variables');
+        throw new Error('Payment processing not configured. Please contact support.');
+      }
     }
 
     // Determine email for payment (user email or guest email)
