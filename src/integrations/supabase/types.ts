@@ -41,6 +41,45 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_withdrawals: {
+        Row: {
+          account_name: string
+          account_number: string
+          amount: number
+          bank_name: string
+          created_at: string
+          fee: number
+          id: string
+          paystack_reference: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          amount: number
+          bank_name: string
+          created_at?: string
+          fee?: number
+          id?: string
+          paystack_reference?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          amount?: number
+          bank_name?: string
+          created_at?: string
+          fee?: number
+          id?: string
+          paystack_reference?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       analytics: {
         Row: {
           created_at: string | null
