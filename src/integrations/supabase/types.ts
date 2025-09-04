@@ -154,6 +154,39 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          read?: boolean
+          title: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           admin_share: number | null
@@ -229,6 +262,48 @@ export type Database = {
           },
           {
             foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      product_shares: {
+        Row: {
+          created_at: string
+          id: string
+          platform: string | null
+          product_id: string
+          share_url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          platform?: string | null
+          product_id: string
+          share_url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          platform?: string | null
+          product_id?: string
+          share_url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_shares_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_shares_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -427,6 +502,45 @@ export type Database = {
           },
         ]
       }
+      social_media_notifications: {
+        Row: {
+          content_type: string
+          content_url: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          platform: string
+          reward_amount: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content_type: string
+          content_url: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          platform: string
+          reward_amount?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content_type?: string
+          content_url?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          platform?: string
+          reward_amount?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscription_plans: {
         Row: {
           commission_percent: number
@@ -607,6 +721,10 @@ export type Database = {
       }
       generate_download_url: {
         Args: { p_order_id: string; p_product_id: string; p_user_id: string }
+        Returns: string
+      }
+      generate_product_share_url: {
+        Args: { p_product_id: string; p_user_id: string }
         Returns: string
       }
       generate_referral_code: {
