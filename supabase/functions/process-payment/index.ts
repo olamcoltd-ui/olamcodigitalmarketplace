@@ -84,20 +84,20 @@ serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
       
-      const { error: orderError } = await supabaseService
-        .from('orders')
-        .insert({
-          user_id: userId,
-          product_id,
-          amount: 0,
-          payment_reference: freeReference,
-          payment_status: 'completed',
-          referrer_id: null,
-          seller_commission: 0,
-          admin_share: 0,
-          referrer_commission: 0,
-          commission_rate: 0,
-          guest_email: !userId ? paymentEmail : null,
+    const { error: orderError } = await supabaseService
+      .from('orders')
+      .insert({
+        user_id: userId,
+        product_id,
+        amount: 0,
+        payment_reference: freeReference,
+        payment_status: 'completed',
+        referrer_id: null,
+        seller_commission: 0,
+        admin_share: 0,
+        referrer_commission: 0,
+        commission_rate: 0,
+        guest_email: !userId ? paymentEmail : null,
           download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
         })
 
