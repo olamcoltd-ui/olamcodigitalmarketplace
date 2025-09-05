@@ -24,6 +24,82 @@ serve(async (req) => {
     const { reference } = await req.json()
     logStep('Payment verification requested', { reference });
 
+    // Create Supabase service client
+    const supabaseService = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Handle free products (references starting with "free_")
+    if (reference.startsWith('free_')) {
+      logStep('Processing free product verification', { reference });
+      
+      // Find the order by payment reference
+      const { data: order, error: orderError } = await supabaseService
+        .from('orders')
+        .select('*')
+        .eq('payment_reference', reference)
+        .single()
+
+      if (orderError || !order) {
+        logStep('Free order not found', { error: orderError });
+        throw new Error('Order not found')
+      }
+
+      // Update order status to completed and set download expiry
+      const { error: updateError } = await supabaseService
+        .from('orders')
+        .update({ 
+          payment_status: 'completed',
+          download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+        })
+        .eq('payment_reference', reference)
+
+      if (updateError) {
+        logStep('Error updating free order', { error: updateError });
+        throw new Error('Failed to update order')
+      }
+
+      // Generate download URL
+      await supabaseService.rpc('generate_download_url', {
+        p_user_id: order.user_id,
+        p_order_id: order.id,
+        p_product_id: order.product_id
+      })
+
+      // Update product download count
+      const { data: currentProduct } = await supabaseService
+        .from('products')
+        .select('download_count')
+        .eq('id', order.product_id)
+        .single()
+
+      if (currentProduct) {
+        await supabaseService
+          .from('products')
+          .update({
+            download_count: (currentProduct.download_count || 0) + 1
+          })
+          .eq('id', order.product_id)
+      }
+
+      logStep('Free product verification completed successfully');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          order: { ...order, payment_status: 'completed' },
+          message: 'Free product download ready'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
+
+    // Handle paid products with Paystack verification
+    logStep('Processing paid product verification', { reference });
+
     // Test secret access immediately
     const paystackSecretTest = Deno.env.get('PAYSTACK_SECRET_KEY');
     logStep('Secret access test', { 
@@ -61,11 +137,6 @@ serve(async (req) => {
 
     const transaction = paystackData.data
 
-    // Create Supabase service client
-    const supabaseService = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
 
     // Handle successful transactions
     if (transaction.status === 'success') {

@@ -260,9 +260,21 @@ const Products = () => {
                     <span className="text-2xl font-bold text-primary">
                       ₦{product.price?.toLocaleString()}
                     </span>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Download className="h-4 w-4 mr-1" />
-                      {product.download_count || 0}
+                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                      <div className="flex items-center">
+                        <Download className="h-4 w-4 mr-1" />
+                        {product.download_count || 0}
+                      </div>
+                      {product.file_size_mb && (
+                        <div className="flex items-center">
+                          <span className="text-xs">
+                            {product.file_size_mb < 1 
+                              ? `${(product.file_size_mb * 1024).toFixed(0)} KB`
+                              : `${product.file_size_mb.toFixed(1)} MB`
+                            }
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
