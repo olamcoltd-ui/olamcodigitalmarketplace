@@ -46,12 +46,31 @@ serve(async (req) => {
         throw new Error('Order not found')
       }
 
+      // Update order status to completed first
+      const { error: updateError } = await supabaseService
+        .from('orders')
+        .update({ 
+          payment_status: 'completed',
+          download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        })
+        .eq('payment_reference', reference)
+
+      if (updateError) {
+        logStep('Failed to update order status', { error: updateError });
+        throw new Error('Failed to update order')
+      }
+
       // Generate download URL
-      const { data: downloadToken } = await supabaseService.rpc('generate_download_url', {
+      const { data: downloadToken, error: downloadError } = await supabaseService.rpc('generate_download_url', {
         p_user_id: order.user_id,
         p_order_id: order.id,
         p_product_id: order.product_id
       })
+
+      if (downloadError) {
+        logStep('Failed to generate download token', { error: downloadError });
+        throw new Error('Failed to generate download link')
+      }
 
       // Update product download count
       await supabaseService
