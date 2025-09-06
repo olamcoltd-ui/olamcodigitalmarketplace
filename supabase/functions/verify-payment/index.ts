@@ -37,7 +37,7 @@ serve(async (req) => {
       // Find the order by payment reference
       const { data: order, error: orderError } = await supabaseService
         .from('orders')
-        .select('*')
+        .select('*, products(*)')
         .eq('payment_reference', reference)
         .single()
 
@@ -46,48 +46,27 @@ serve(async (req) => {
         throw new Error('Order not found')
       }
 
-      // Update order status to completed and set download expiry
-      const { error: updateError } = await supabaseService
-        .from('orders')
-        .update({ 
-          payment_status: 'completed',
-          download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
-        })
-        .eq('payment_reference', reference)
-
-      if (updateError) {
-        logStep('Error updating free order', { error: updateError });
-        throw new Error('Failed to update order')
-      }
-
       // Generate download URL
-      await supabaseService.rpc('generate_download_url', {
+      const { data: downloadToken } = await supabaseService.rpc('generate_download_url', {
         p_user_id: order.user_id,
         p_order_id: order.id,
         p_product_id: order.product_id
       })
 
       // Update product download count
-      const { data: currentProduct } = await supabaseService
+      await supabaseService
         .from('products')
-        .select('download_count')
+        .update({
+          download_count: (order.products.download_count || 0) + 1
+        })
         .eq('id', order.product_id)
-        .single()
-
-      if (currentProduct) {
-        await supabaseService
-          .from('products')
-          .update({
-            download_count: (currentProduct.download_count || 0) + 1
-          })
-          .eq('id', order.product_id)
-      }
 
       logStep('Free product verification completed successfully');
       return new Response(
         JSON.stringify({
           success: true,
           order: { ...order, payment_status: 'completed' },
+          download_token: downloadToken,
           message: 'Free product download ready'
         }),
         {
@@ -210,64 +189,106 @@ serve(async (req) => {
       }
 
       // Handle regular product purchases
-      const { data: order, error: orderError } = await supabaseService
+      const { data: orderData, error: orderError } = await supabaseService
+        .from('orders')
+        .select('*, products(*)')
+        .eq('payment_reference', reference)
+        .single()
+
+      if (orderError || !orderData) {
+        console.error('Order not found:', orderError)
+        throw new Error('Order not found')
+      }
+
+      // Calculate commissions based on new sharing rules
+      const totalAmount = orderData.amount
+      let sellerCommission = 0
+      let referrerCommission = 0
+      let adminShare = totalAmount
+
+      // For product sales through shared links: Referrer gets 15%, Admin gets 85%
+      if (orderData.referrer_id) {
+        referrerCommission = totalAmount * 0.15 // 15% to referrer
+        adminShare = totalAmount * 0.85 // 85% to admin
+      }
+
+      // Update order with commission breakdown and completion status
+      const { data: order, error: updateError } = await supabaseService
         .from('orders')
         .update({ 
           payment_status: 'completed',
-          download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+          download_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+          seller_commission: sellerCommission,
+          referrer_commission: referrerCommission,
+          admin_share: adminShare
         })
         .eq('payment_reference', reference)
         .select('*')
         .single()
 
-      if (orderError || !order) {
-        console.error('Order update error:', orderError)
+      if (updateError || !order) {
+        console.error('Order update error:', updateError)
         throw new Error('Failed to update order')
       }
 
-      // Process commission using the new edge function
-      try {
-        await supabaseService.functions.invoke('process-commission', {
-          body: {
-            orderId: order.id,
-            buyerId: order.user_id,
-            productId: order.product_id,
-            amount: order.amount,
-            referrerId: order.referrer_id
-          }
-        });
-      } catch (commissionError) {
-        console.error("Commission processing error:", commissionError);
-        // Don't fail the payment verification if commission processing fails
+      // Update user wallets for commissions
+      if (orderData.referrer_id && referrerCommission > 0) {
+        await supabaseService.rpc('update_wallet_balance', {
+          user_uuid: orderData.referrer_id,
+          amount_change: referrerCommission
+        })
+
+        // Create transaction record for referrer
+        await supabaseService
+          .from('transactions')
+          .insert({
+            user_id: orderData.referrer_id,
+            type: 'referral_commission',
+            amount: referrerCommission,
+            description: `Commission from product sale: ${orderData.products?.title}`,
+            reference: `ref_${reference}`,
+            status: 'completed'
+          })
+      }
+
+      // Update admin wallet
+      if (adminShare > 0) {
+        await supabaseService.rpc('update_admin_wallet_balance', {
+          amount: adminShare
+        })
+
+        // Create admin revenue record
+        await supabaseService
+          .from('admin_revenue')
+          .insert({
+            user_id: orderData.user_id,
+            order_id: orderData.id,
+            source: 'product_sale',
+            description: `Revenue from ${orderData.products?.title}`,
+            amount: adminShare
+          })
       }
 
       // Generate download URL
-      await supabaseService.rpc('generate_download_url', {
+      const { data: downloadToken } = await supabaseService.rpc('generate_download_url', {
         p_user_id: order.user_id,
         p_order_id: order.id,
         p_product_id: order.product_id
       })
 
       // Update product download count
-      const { data: currentProduct } = await supabaseService
+      await supabaseService
         .from('products')
-        .select('download_count')
+        .update({
+          download_count: (orderData.products?.download_count || 0) + 1
+        })
         .eq('id', order.product_id)
-        .single()
-
-      if (currentProduct) {
-        await supabaseService
-          .from('products')
-          .update({
-            download_count: (currentProduct.download_count || 0) + 1
-          })
-          .eq('id', order.product_id)
-      }
 
       return new Response(
         JSON.stringify({
           success: true,
           order: order,
+          download_token: downloadToken,
           message: 'Payment verified and processed successfully'
         }),
         {

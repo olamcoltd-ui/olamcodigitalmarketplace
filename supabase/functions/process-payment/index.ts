@@ -194,10 +194,16 @@ serve(async (req) => {
       }
     }
 
-    // Calculate commissions (will be 0 for free products)
-    const sellerCommission = amount * commissionRate
-    const adminShare = amount - sellerCommission
-    const referrerCommission = referrerId ? amount * 0.15 : 0
+    // Calculate commissions based on new sharing rules
+    let sellerCommission = 0
+    let adminShare = amount
+    let referrerCommission = 0
+
+    // For product sales through shared links: Referrer gets 15%, Admin gets 85%
+    if (referrerId) {
+      referrerCommission = amount * 0.15 // 15% to referrer
+      adminShare = amount * 0.85 // 85% to admin
+    }
 
     // Create order
     const { error: orderError } = await supabaseService

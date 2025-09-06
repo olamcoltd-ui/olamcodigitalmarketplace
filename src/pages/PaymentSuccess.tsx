@@ -80,23 +80,47 @@ const PaymentSuccess = () => {
     if (!order) return;
 
     try {
-      // Generate download URL
-      const { data, error } = await supabase.rpc("generate_download_url", {
-        p_user_id: (await supabase.auth.getUser()).data.user?.id,
-        p_order_id: order.id,
-        p_product_id: order.product_id
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) {
+        toast.error("Please sign in to download");
+        return;
+      }
+
+      // Validate download token
+      const { data: downloadData, error } = await supabase.rpc('validate_download', {
+        download_token: `download_${order.id}`, 
+        requesting_user_id: user.user.id
       });
 
-      if (error) throw error;
+      if (error || !downloadData || downloadData.length === 0) {
+        console.error('Download validation error:', error);
+        toast.error('Download not available or expired');
+        return;
+      }
 
-      // Create download link
-      const downloadUrl = `${window.location.origin}/download/${data}`;
-      window.open(downloadUrl, "_blank");
-      
-      toast.success("Download started!");
+      const download = downloadData[0];
+      if (!download.valid) {
+        toast.error('Download link has expired or is invalid');
+        return;
+      }
+
+      // Trigger file download
+      if (download.file_url) {
+        const link = document.createElement('a');
+        link.href = download.file_url;
+        link.download = download.product_title || 'download';
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast.success('Download started!');
+      } else {
+        toast.error('Download file not found');
+      }
     } catch (error) {
-      console.error("Error generating download:", error);
-      toast.error("Failed to generate download link");
+      console.error("Error downloading file:", error);
+      toast.error("Failed to download file");
     }
   };
 
@@ -164,7 +188,9 @@ const PaymentSuccess = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Amount Paid:</span>
-                <span className="font-semibold">₦{order.amount.toLocaleString()}</span>
+                <span className="font-semibold">
+                  {order.amount === 0 ? 'FREE' : `₦${order.amount.toLocaleString()}`}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Reference:</span>

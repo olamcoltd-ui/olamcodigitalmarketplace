@@ -181,7 +181,14 @@ const ProductDetail = () => {
                 <CardContent className="p-4">
                   <Eye className="h-6 w-6 mx-auto mb-2 text-primary" />
                   <p className="text-sm text-muted-foreground">File Size</p>
-                  <p className="font-semibold">{product.file_size_mb || "N/A"} MB</p>
+                  <p className="font-semibold">
+                    {product.file_size_mb 
+                      ? product.file_size_mb < 1 
+                        ? `${(product.file_size_mb * 1024).toFixed(0)} KB`
+                        : `${product.file_size_mb.toFixed(1)} MB`
+                      : "N/A"
+                    }
+                  </p>
                 </CardContent>
               </Card>
               <Card className="text-center border-primary/20">
